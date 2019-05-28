@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "318742621330",
+    "firebase_url": "https://computer-notes-web.firebaseio.com",
+    "project_id": "computer-notes-web",
+    "storage_bucket": "computer-notes-web.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:318742621330:android:d333a9786d640983",
+        "android_client_info": {
+          "package_name": "computernotes.computernotes"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "318742621330-a0a0vioi74ae9ofsm23oaorllr2bk2pv.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "computernotes.computernotes",
+            "certificate_hash": "8ade7735400b340a9a0bd237da3bcc713d67c348"
+          }
+        },
+        {
+          "client_id": "318742621330-vppektmjgaeea4772q3uth2udlj2d1bd.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDQB08MzrlpFzfWaxoWcp-8U39D8TvV5cY"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 2,
+          "other_platform_oauth_client": [
+            {
+              "client_id": "318742621330-vppektmjgaeea4772q3uth2udlj2d1bd.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

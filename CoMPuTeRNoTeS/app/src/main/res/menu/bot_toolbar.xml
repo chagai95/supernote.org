@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <item
+        android:id="@+id/bot_newnote"
+        android:icon="@android:drawable/ic_input_add"
+        android:orderInCategory="1"
+        android:title="New Note"
+        app:showAsAction="always" />
+
+    <item
+        android:id="@+id/bot_settings"
+        android:icon="@android:drawable/ic_menu_manage"
+        android:orderInCategory="1"
+        android:title="@string/action_settings"
+        app:showAsAction="always" />
+    <item
+        android:id="@+id/bot_contact"
+        android:icon="@android:drawable/ic_dialog_email"
+        android:orderInCategory="1"
+        android:title="@string/action_contact"
+        app:showAsAction="always" />
+
+    <item
+        android:id="@+id/bot_getLocation"
+        android:icon="@android:drawable/ic_menu_mylocation"
+        android:orderInCategory="1"
+        android:title="get location"
+        app:showAsAction="always" />
+
+    <item
+        android:id="@+id/bot_signout"
+        android:icon="@android:drawable/ic_menu_directions"
+        android:orderInCategory="1"
+        android:title="@string/sign_out"
+        app:showAsAction="always" />
+
+</menu>

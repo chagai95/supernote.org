@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+            <item
+                android:id="@+id/draw_location"
+                android:title="@string/action_add_user_notification" />
+            <item
+                android:id="@+id/draw_setting"
+                android:title="@string/action_settings" />
+            <item
+                android:id="@+id/draw_new_note"
+                android:title="@string/action_new_note" />
+            <item
+                android:id="@+id/draw_contact"
+                android:title="@string/action_contact" />
+            <item
+                android:id="@+id/draw_signout"
+                android:title="@string/sign_out" />
+
+
+</menu>

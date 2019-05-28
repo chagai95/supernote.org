@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".activities.SettingsActivity"
+    android:orientation="vertical">
+
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" >
+
+                        <EditText
+                            android:id="@+id/setUsername"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content" />
+
+
+
+                        <EditText
+                            android:id="@+id/leftSwipeNote"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content" />
+
+                        <EditText
+                            android:id="@+id/rightSwipeNote"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content" />
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="3dp"
+                            android:background="@android:color/darker_gray" />
+
+                        <TextView
+                            android:id="@+id/activeMenusHeadline"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center"
+                            android:text="Active Menus"
+                            android:textSize="18sp"
+                            android:textStyle="bold|italic" />
+
+                        <CheckBox
+                            android:id="@+id/checkBoxBotTB"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:checked="true"
+                            android:text="Bottom Toolbar" />
+
+                        <CheckBox
+                            android:id="@+id/checkBoxDrawer"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:checked="true"
+                            android:text="Drawer Menu" />
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="3dp"
+                            android:background="@android:color/darker_gray" />
+
+                        <TextView
+                            android:id="@+id/botTBheadline"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center"
+                            android:text="Bottom Toolbar Settings"
+                            android:textAllCaps="false"
+                            android:textSize="18sp"
+                            android:textStyle="bold|italic" />
+
+                        <EditText
+                            android:id="@+id/tbPriority1"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:ems="10"
+                            android:hint="@string/prio1_hint"
+                            android:inputType="textPersonName" />
+
+                        <EditText
+                            android:id="@+id/tbPriority2"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:ems="10"
+                            android:hint="@string/prio2_hint"
+                            android:inputType="textPersonName" />
+
+                        <EditText
+                            android:id="@+id/tbPriority3"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:ems="10"
+                            android:hint="@string/prio3_hint"
+                            android:inputType="textPersonName" />
+
+                        <EditText
+                            android:id="@+id/tbPriority4"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:ems="10"
+                            android:hint="@string/prio4_hint"
+                            android:inputType="textPersonName" />
+
+                        <EditText
+                            android:id="@+id/tbPriority5"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:ems="10"
+                            android:hint="@string/prio5_hint"
+                            android:inputType="textPersonName" />
+
+                        <View
+                            android:id="@+id/view"
+                            android:layout_width="match_parent"
+                            android:layout_height="3dp"
+                            android:background="@android:color/darker_gray" />
+
+                        <TextView
+                            android:id="@+id/drawerSettingsHeadline"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center"
+                            android:text="Drawer Menu Settings"
+                            android:textAllCaps="false"
+                            android:textSize="18sp"
+                            android:textStyle="bold|italic" />
+
+                        <EditText
+                            android:id="@+id/drawerPrio1"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:ems="10"
+                            android:hint="@string/prio1_hint"
+                            android:inputType="textPersonName" />
+
+                        <EditText
+                            android:id="@+id/drawerPrio2"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:ems="10"
+                            android:hint="@string/prio2_hint"
+                            android:inputType="textPersonName" />
+
+                        <EditText
+                            android:id="@+id/drawerPrio3"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:ems="10"
+                            android:hint="@string/prio3_hint"
+                            android:inputType="textPersonName" />
+
+                        <EditText
+                            android:id="@+id/drawerPrio4"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:ems="10"
+                            android:hint="@string/prio4_hint"
+                            android:inputType="textPersonName" />
+
+                        <EditText
+                            android:id="@+id/drawerPrio5"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:ems="10"
+                            android:hint="@string/prio5_hint"
+                            android:inputType="textPersonName" />
+                </LinearLayout>
+        </ScrollView>
+
+
+</LinearLayout>
