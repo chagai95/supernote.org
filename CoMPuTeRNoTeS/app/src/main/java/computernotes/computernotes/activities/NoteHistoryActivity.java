@@ -2,10 +2,10 @@ package computernotes.computernotes.activities;
 
 import android.content.Context;
 import android.os.Bundle;
-import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.LinearLayoutManager;
-import android.support.v7.widget.RecyclerView;
-import android.support.v7.widget.helper.ItemTouchHelper;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+import androidx.recyclerview.widget.ItemTouchHelper;
 import android.view.View;
 
 import computernotes.computernotes.R;
@@ -34,10 +34,10 @@ public class NoteHistoryActivity extends AppCompatActivity {
 
         recyclerViewNoteHistoryActivity.setHasFixedSize(true);
         recyclerViewNoteHistoryActivity.setLayoutManager(new LinearLayoutManager(c));
-        //creating recyclerview adapterRecyclerViewNoteList
+        //creating recyclerview adapterFirestoreRecyclerViewNoteList
         noteHistoryAdapter = new NoteHistoryAdapter(c, noteMain.getNoteHistory());
 
-        //setting adapterRecyclerViewNoteList to recyclerview
+        //setting adapterFirestoreRecyclerViewNoteList to recyclerview
         recyclerViewNoteHistoryActivity.setAdapter(noteHistoryAdapter);
         ItemTouchHelper.SimpleCallback simpleItemTouchCallback = new ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT) {
 
@@ -71,7 +71,7 @@ public class NoteHistoryActivity extends AppCompatActivity {
                     @Override
                     public void onItemClicked(RecyclerView recyclerView, int position, View v) {
                         System.out.println("reminder clicked");
-//                        adapterRecyclerViewNoteList.notifyItemRemoved(position); //item removed from recylcerview
+//                        adapterFirestoreRecyclerViewNoteList.notifyItemRemoved(position); //item removed from recylcerview
 //                        Reminder reminder = noteHistoryList.remove(position);  //then remove item
                         // problem: when canceled the old reminder is not saved
                         // solution: add this reminder to the list when cancel is clicked

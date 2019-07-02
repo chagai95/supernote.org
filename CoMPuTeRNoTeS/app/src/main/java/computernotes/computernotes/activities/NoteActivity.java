@@ -18,14 +18,14 @@ import android.os.Build;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.provider.Settings;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.app.NavUtils;
-import android.support.v4.app.TaskStackBuilder;
-import android.support.v7.app.AlertDialog;
-import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.LinearLayoutManager;
-import android.support.v7.widget.RecyclerView;
-import android.support.v7.widget.helper.ItemTouchHelper;
+import androidx.core.app.ActivityCompat;
+import androidx.core.app.NavUtils;
+import androidx.core.app.TaskStackBuilder;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+import androidx.recyclerview.widget.ItemTouchHelper;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
@@ -68,7 +68,7 @@ import computernotes.computernotes.utils.notifications.NotificationHelper;
 //
 //import com.google.firebase.firestore.DocumentSnapshot;
 //import com.google.firebase.firestore.FirebaseFirestore;
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
@@ -185,10 +185,10 @@ public class NoteActivity extends AppCompatActivity {
         recyclerViewNoteContentList.setLayoutManager(new LinearLayoutManager(c));
 
 
-        //creating recyclerview adapterRecyclerViewNoteList
+        //creating recyclerview adapterFirestoreRecyclerViewNoteList
         adapterRecyclerViewNoteContentList = new NoteContentItemAdapter(c, noteMain);
 
-        //setting adapterRecyclerViewNoteList to recyclerview
+        //setting adapterFirestoreRecyclerViewNoteList to recyclerview
         recyclerViewNoteContentList.setAdapter(adapterRecyclerViewNoteContentList);
 
 

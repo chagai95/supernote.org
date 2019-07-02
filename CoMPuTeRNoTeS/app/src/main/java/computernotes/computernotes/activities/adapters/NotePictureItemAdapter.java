@@ -1,23 +1,18 @@
 package computernotes.computernotes.activities.adapters;
 
 import android.content.Context;
-import android.support.v7.widget.RecyclerView;
-import android.text.method.LinkMovementMethod;
+import androidx.recyclerview.widget.RecyclerView;
+
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
-import android.widget.TextView;
 
 import com.bumptech.glide.Glide;
 
 import java.util.List;
 
 import computernotes.computernotes.R;
-import computernotes.computernotes.notecontent.NoteContent;
-import computernotes.computernotes.notecontent.Paragraph;
-import computernotes.computernotes.notecontent.Picture;
-import computernotes.computernotes.notecontent.hyperlink.HyperlinkNote;
 
 public class NotePictureItemAdapter extends RecyclerView.Adapter<NotePictureItemAdapter.NoteViewHolder> {
 

@@ -4,7 +4,6 @@ import android.annotation.TargetApi;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.os.Build;
-import android.support.v4.app.NotificationManagerCompat;
 
 import java.util.ArrayList;
 

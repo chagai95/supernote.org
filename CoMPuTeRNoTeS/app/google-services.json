@@ -15,6 +15,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "318742621330-jurgn3knjiglsvre2sm620l69o89ogkh.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "computernotes.computernotes",
+            "certificate_hash": "2586340f23e932473c4ab083d2ff4bf4d8de7bde"
+          }
+        },
+        {
           "client_id": "318742621330-a0a0vioi74ae9ofsm23oaorllr2bk2pv.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
@@ -33,20 +41,13 @@
         }
       ],
       "services": {
-        "analytics_service": {
-          "status": 1
-        },
         "appinvite_service": {
-          "status": 2,
           "other_platform_oauth_client": [
             {
               "client_id": "318742621330-vppektmjgaeea4772q3uth2udlj2d1bd.apps.googleusercontent.com",
               "client_type": 3
             }
           ]
-        },
-        "ads_service": {
-          "status": 2
         }
       }
     }

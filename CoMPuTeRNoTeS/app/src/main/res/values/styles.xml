@@ -3,9 +3,16 @@
     <!-- Base application theme. -->
     <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
         <!-- Customize your theme here. -->
-        <item name="colorPrimary">@color/colorPrimary</item>
-        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
-        <item name="colorAccent">@color/colorAccent</item>
+        <item name="colorPrimary">#EE1842</item>
+        <item name="colorPrimaryDark">#EE1842</item>
+        <item name="colorAccent">#EE1842</item>
+    </style>
+
+    <style name="Online" parent="Theme.AppCompat.Light.DarkActionBar">
+        <!-- Customize your theme here. -->
+        <item name="colorPrimary">#36832B</item>
+        <item name="colorPrimaryDark">#36832B</item>
+        <item name="colorAccent">#36832B</item>
     </style>
 
 </resources>

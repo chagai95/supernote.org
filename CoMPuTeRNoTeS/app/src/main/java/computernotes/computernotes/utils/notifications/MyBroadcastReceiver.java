@@ -2,7 +2,7 @@ package computernotes.computernotes.utils.notifications;
 
 import android.app.AlarmManager;
 import android.app.PendingIntent;
-import android.support.v4.app.TaskStackBuilder;
+import androidx.core.app.TaskStackBuilder;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -15,6 +15,7 @@ import computernotes.computernotes.ServerCommunicator;
 import computernotes.computernotes.Settings;
 import computernotes.computernotes.activities.NoteActivity;
 import computernotes.computernotes.note.Note;
+import computernotes.computernotes.note.NoteMain;
 
 public class MyBroadcastReceiver extends BroadcastReceiver {
     public static String NOTIFICATION_ID = "notification-id";
@@ -38,7 +39,9 @@ public class MyBroadcastReceiver extends BroadcastReceiver {
         // ServerCommunicator is a singleton now
 
         ServerCommunicator.getInstance();
-        Note note = ServerCommunicator.notes.get(note_index);
+        Note note=new NoteMain();
+        if(ServerCommunicator.notes.size()!=0)
+        note = ServerCommunicator.notes.get(note_index);
         createNotification(context, note);
     }
 

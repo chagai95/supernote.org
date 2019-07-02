@@ -1,5 +1,7 @@
 package computernotes.computernotes;
 
+import android.content.Context;
+
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.ArrayList;
@@ -25,6 +27,7 @@ public class ServerCommunicator {
     private static ServerCommunicator firstInstance = null;
 
     public ServerCommunicator() {
+
 
         db = FirebaseFirestore.getInstance();
 

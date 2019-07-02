@@ -2,8 +2,8 @@ package computernotes.computernotes.activities.adapters;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
-import android.support.annotation.NonNull;
-import android.support.v7.widget.RecyclerView;
+import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -16,7 +16,6 @@ import computernotes.computernotes.R;
 import computernotes.computernotes.activities.MainActivity;
 import computernotes.computernotes.note.Note;
 import computernotes.computernotes.note.NoteMain;
-import computernotes.computernotes.notecontent.NoteContent;
 import computernotes.computernotes.notecontent.Paragraph;
 
 public class NoteItemAdapter extends RecyclerView.Adapter<NoteItemAdapter.NoteViewHolder> {

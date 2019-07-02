@@ -1,15 +1,11 @@
 package computernotes.computernotes.reminders.utils;
 
 import android.app.IntentService;
-import android.app.Notification;
-import android.app.PendingIntent;
 import android.content.Intent;
-import android.graphics.BitmapFactory;
-import android.support.v4.app.NotificationCompat;
-import android.support.v4.app.NotificationManagerCompat;
+
+import androidx.core.app.NotificationCompat;
+
 import android.util.Log;
-import computernotes.computernotes.R;
-import computernotes.computernotes.activities.MainActivity;
 
 import java.util.concurrent.TimeUnit;
 

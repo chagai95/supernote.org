@@ -7,43 +7,41 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
+import android.content.res.Resources;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
-import android.support.annotation.NonNull;
-import android.support.design.widget.CoordinatorLayout;
-import android.support.design.widget.NavigationView;
-import android.support.design.widget.Snackbar;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.app.NavUtils;
-import android.support.v4.widget.DrawerLayout;
-import android.support.v7.app.ActionBarDrawerToggle;
-import android.support.v7.app.AlertDialog;
-import android.support.v7.app.AppCompatActivity;
-import android.support.v7.view.menu.ActionMenuItemView;
-import android.support.v7.widget.LinearLayoutManager;
-import android.support.v7.widget.RecyclerView;
-import android.support.v7.widget.Toolbar;
-import android.support.v7.widget.SearchView;
-import android.support.v7.widget.helper.ItemTouchHelper;
-import android.text.Layout;
+import androidx.annotation.NonNull;
+
+import com.firebase.ui.firestore.FirestoreRecyclerOptions;
+import com.google.android.material.navigation.NavigationView;
+import com.google.android.material.snackbar.Snackbar;
+import androidx.core.app.ActivityCompat;
+import androidx.core.app.NavUtils;
+import androidx.drawerlayout.widget.DrawerLayout;
+import androidx.appcompat.app.ActionBarDrawerToggle;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.view.menu.ActionMenuItemView;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+import androidx.appcompat.widget.Toolbar;
+import androidx.appcompat.widget.SearchView;
+import androidx.recyclerview.widget.ItemTouchHelper;
 import android.util.Log;
-import android.view.LayoutInflater;
 import android.view.Menu;
-import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.CheckBox;
 import android.widget.ScrollView;
-import android.widget.Switch;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.widget.ToggleButton;
 
 import com.firebase.ui.auth.AuthUI;
 import com.firebase.ui.auth.IdpResponse;
@@ -58,9 +56,9 @@ import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreSettings;
 import com.google.firebase.firestore.GeoPoint;
+import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.QuerySnapshot;
-import com.google.firebase.firestore.SetOptions;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -72,23 +70,26 @@ import computernotes.computernotes.R;
 import computernotes.computernotes.ServerCommunicator;
 import computernotes.computernotes.Tag;
 import computernotes.computernotes.activities.adapters.NoteItemAdapter;
+import computernotes.computernotes.activities.adapters.NoteItemFirestoreAdapter;
 import computernotes.computernotes.notecontent.Paragraph;
 import computernotes.computernotes.reminders.TimeReminder;
 import computernotes.computernotes.reminders.UserReminder;
 import computernotes.computernotes.reminders.utils.MyDatePickerFragment;
 import computernotes.computernotes.users.CloudUser;
 import computernotes.computernotes.users.LocalUser;
-import computernotes.computernotes.users.User;
 import computernotes.computernotes.utils.FireBaseNote;
 import computernotes.computernotes.utils.ItemClickSupport;
 import computernotes.computernotes.note.Note;
 import computernotes.computernotes.note.NoteMain;
 import computernotes.computernotes.reminders.LocationReminder;
 import computernotes.computernotes.reminders.Reminder;
+import computernotes.computernotes.utils.MyApp;
 import computernotes.computernotes.utils.notifications.NotificationHelper;
 
 
 public class MainActivity extends AppCompatActivity {
+
+
 
     //all context in this project have the variable c.
     Context c = this;
@@ -101,7 +102,8 @@ public class MainActivity extends AppCompatActivity {
 
     //the recyclerview
     RecyclerView recyclerViewNoteList;
-    NoteItemAdapter adapterRecyclerViewNoteList;
+    NoteItemFirestoreAdapter adapterFirestoreRecyclerViewNoteList;
+//    NoteItemFirestoreAdapter adapterFirestoreRecyclerViewNoteList;
 
     //drawer menu
     private DrawerLayout drawerLayout;
@@ -118,12 +120,45 @@ public class MainActivity extends AppCompatActivity {
     FirebaseAuth mAuth;
     FirebaseUser firebaseUser;
 
+    static boolean isOnline;
+    public static boolean networkWorking;
+    private boolean loggedIn;
+
+    @Override
+    public Resources.Theme getTheme() {
+        Resources.Theme theme = super.getTheme();
+        isOnline = isNetworkAvailable();
+//        skip this for now because it does not work. - tried to check if there can be a connection with google established.
+//        new Online().run();
+        if(isOnline )// && networkWorking)
+            theme.applyStyle(R.style.Online, true);
+        else
+            theme.applyStyle(R.style.AppTheme, true);
+        return theme;
+    }
+
+    private boolean isNetworkAvailable() {
+        ConnectivityManager manager =
+                (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo networkInfo = manager.getActiveNetworkInfo();
+        boolean isAvailable = false;
+        if (networkInfo != null && networkInfo.isConnected()) {
+            // Network is present and connected
+            isAvailable = true;
+        }
+        return isAvailable;
+    }
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         noLogin = findViewById(R.id.no_login);
         login = findViewById(R.id.login);
+
+        MyApp.getFirstInstance().registerActivityLifecycleCallbacks(new MyActivityLifecycleCallbacks());
+
         //  Setting ItemClickListener for Bottom Toolbar
         // Edited by Robert on the 10.03.2019 at 13:11 .
         tb = findViewById(R.id.bottom_toolbar);
@@ -175,18 +210,20 @@ public class MainActivity extends AppCompatActivity {
             createDrawerMenu();
         }
 
+//        setUpRecyclerView();
 
-        //getting the recyclerview from xml
+        /*//getting the recyclerview from xml
         recyclerViewNoteList = findViewById(R.id.recyclerViewMain);
         recyclerViewNoteList.setHasFixedSize(true); // is probably wrong because it changes when notes get deleted.
         recyclerViewNoteList.setLayoutManager(new LinearLayoutManager(c));
 
 
-        //creating recyclerview adapterRecyclerViewNoteList
-        adapterRecyclerViewNoteList = new NoteItemAdapter(c, noteList);
+        //creating recyclerview adapterFirestoreRecyclerViewNoteList
+        adapterFirestoreRecyclerViewNoteList = new NoteItemAdapter(c, noteList);
 
-        //setting adapterRecyclerViewNoteList to recyclerview
-        recyclerViewNoteList.setAdapter(adapterRecyclerViewNoteList);
+        //setting adapterFirestoreRecyclerViewNoteList to recyclerview
+        recyclerViewNoteList.setAdapter(adapterFirestoreRecyclerViewNoteList);*/
+/*
 
         //swipe note
         ItemTouchHelper.SimpleCallback simpleItemTouchCallback = new ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT) {
@@ -203,7 +240,7 @@ public class MainActivity extends AppCompatActivity {
 
                 if (direction == ItemTouchHelper.LEFT) {    //if swipe left
                     if (ServerCommunicator.settingsTest.getLeftSwipeNoteString().equals("delete")) {
-                        adapterRecyclerViewNoteList.notifyItemRemoved(position); //item removed from recylcerview
+                        adapterFirestoreRecyclerViewNoteList.notifyItemRemoved(position); //item removed from recylcerview
                         noteList.remove(position);  //then remove item
                         db.collection("notes").document(noteList.get(position).getFirebaseID()).delete();
                     }
@@ -216,7 +253,7 @@ public class MainActivity extends AppCompatActivity {
                 }
                 if (direction == ItemTouchHelper.RIGHT) {    //if swipe right
                     if (ServerCommunicator.settingsTest.getRightSwipeNoteString().equals("delete")) {
-                        adapterRecyclerViewNoteList.notifyItemRemoved(position); //item removed from recylcerview
+                        adapterFirestoreRecyclerViewNoteList.notifyItemRemoved(position); //item removed from recylcerview
                         noteList.remove(position);  //then remove item
                         db.collection("notes").document(noteList.get(position).getFirebaseID()).delete();
                     }
@@ -244,6 +281,7 @@ public class MainActivity extends AppCompatActivity {
                         startActivity(intent);
                     }
                 });
+*/
 
         //@Michael was tut das hier? einmal inizieren?
         new NotificationHelper(c).initNotificationChannels();
@@ -251,6 +289,22 @@ public class MainActivity extends AppCompatActivity {
         //test where we are
         location();
 
+    }
+
+
+    private void setUpRecyclerView() {
+        Query query = db.collection("notes").orderBy("title", Query.Direction.DESCENDING).whereEqualTo("owner", firebaseUser.getUid());
+
+        FirestoreRecyclerOptions<FireBaseNote> options = new FirestoreRecyclerOptions.Builder<FireBaseNote>()
+                .setQuery(query, FireBaseNote.class)
+                .build();
+
+        adapterFirestoreRecyclerViewNoteList = new NoteItemFirestoreAdapter(options);
+
+        RecyclerView recyclerView = findViewById(R.id.recyclerViewMain);
+        recyclerView.setHasFixedSize(true);
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        recyclerView.setAdapter(adapterFirestoreRecyclerViewNoteList);
     }
 
     // called after login
@@ -262,6 +316,7 @@ public class MainActivity extends AppCompatActivity {
             IdpResponse response = IdpResponse.fromResultIntent(data);
 
             if (resultCode == RESULT_OK) {
+                loggedIn = true;
                 // Successfully signed in
                 firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
                 db.collection("users").get().addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
@@ -306,8 +361,23 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onStart() {
+        super.onStart();
+        if(loggedIn)
+        adapterFirestoreRecyclerViewNoteList.startListening();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if(loggedIn)
+            adapterFirestoreRecyclerViewNoteList.stopListening();
+    }
+
+    @Override
     protected void onResume() {
-        adapterRecyclerViewNoteList.notifyDataSetChanged();
+        if(loggedIn)
+        adapterFirestoreRecyclerViewNoteList.notifyDataSetChanged();
         super.onResume();
     }
 
@@ -382,7 +452,7 @@ public class MainActivity extends AppCompatActivity {
         view.setOnCloseListener(new SearchView.OnCloseListener() {
             @Override
             public boolean onClose() {
-                recyclerViewNoteList.setAdapter(adapterRecyclerViewNoteList);
+                recyclerViewNoteList.setAdapter(adapterFirestoreRecyclerViewNoteList);
                 return false;
             }
         });
@@ -434,7 +504,8 @@ public class MainActivity extends AppCompatActivity {
                 showSharedWithMe();
                 return true;
             case R.id.all_notes:
-                setAdapterToAllNotes();
+                getTheme();
+                recreate();
                 return true;
 
         }
@@ -472,7 +543,7 @@ public class MainActivity extends AppCompatActivity {
                             public void onComplete(@NonNull Task<AuthResult> task) {
                                 if (task.isSuccessful()) {
                                     // Sign in success, update UI with the signed-in firebaseUser's information
-                                    ServerCommunicator.user = new LocalUser(firebaseUser.getUid());
+                                    ServerCommunicator.user = new LocalUser("test");
                                     ServerCommunicator.user.setNotes(noteList);
                                     db.disableNetwork();
                                 }
@@ -518,7 +589,7 @@ public class MainActivity extends AppCompatActivity {
         db.enableNetwork();
         ServerCommunicator.notes.clear();
         ServerCommunicator.getAllTags().clear();
-        adapterRecyclerViewNoteList.notifyDataSetChanged();
+        adapterFirestoreRecyclerViewNoteList.notifyDataSetChanged();
         AuthUI.getInstance()
                 .signOut(this)
                 .addOnCompleteListener(new OnCompleteListener<Void>() {
@@ -526,11 +597,13 @@ public class MainActivity extends AppCompatActivity {
                         login();
                     }
                 });
+        loggedIn = false;
         noLogin.setVisibility(View.VISIBLE);
         login.setVisibility(View.VISIBLE);
     }
 
     private void loadNotes(final String uid) {
+
         // TODO: differentiate between CloudUser and LocalUser then add initialising user here.(either with a method or with a field in user(be careful because the internet is off for anonymous user ))
         List<? extends UserInfo> providerData = firebaseUser.getProviderData();
         boolean isAnonymousUser = true;
@@ -611,8 +684,8 @@ public class MainActivity extends AppCompatActivity {
                                     }
                                 }
                             }
-                            adapterRecyclerViewNoteList.notifyDataSetChanged();
-//                            adapterRecyclerViewNoteList = new NoteItemAdapter(c,notes);
+                            adapterFirestoreRecyclerViewNoteList.notifyDataSetChanged();
+//                            adapterFirestoreRecyclerViewNoteList = new NoteItemAdapter(c,notes);
                         } else {
                         }
                     }
@@ -875,7 +948,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setAdapterToAllNotes() {
-        recyclerViewNoteList.setAdapter(adapterRecyclerViewNoteList);
+        recyclerViewNoteList.setAdapter(adapterFirestoreRecyclerViewNoteList);
     }
 
     private void showSharedWithMe() {

@@ -3,10 +3,10 @@ package computernotes.computernotes.activities;
 import android.app.DialogFragment;
 import android.content.Context;
 import android.os.Bundle;
-import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.LinearLayoutManager;
-import android.support.v7.widget.RecyclerView;
-import android.support.v7.widget.helper.ItemTouchHelper;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+import androidx.recyclerview.widget.ItemTouchHelper;
 import android.view.View;
 
 import java.util.List;
@@ -42,10 +42,10 @@ public class RemindersInNoteActivity extends AppCompatActivity {
         recyclerViewRemindersInNoteActivity.setHasFixedSize(true);
         recyclerViewRemindersInNoteActivity.setLayoutManager(new LinearLayoutManager(c));
         remindersList = (List<Reminder>) noteMain.getReminders();
-        //creating recyclerview adapterRecyclerViewNoteList
+        //creating recyclerview adapterFirestoreRecyclerViewNoteList
         remindersInNoteAdapter = new RemindersInNoteAdapter(c, remindersList);
 
-        //setting adapterRecyclerViewNoteList to recyclerview
+        //setting adapterFirestoreRecyclerViewNoteList to recyclerview
         recyclerViewRemindersInNoteActivity.setAdapter(remindersInNoteAdapter);
         ItemTouchHelper.SimpleCallback simpleItemTouchCallback = new ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT) {
 
@@ -81,7 +81,7 @@ public class RemindersInNoteActivity extends AppCompatActivity {
                     @Override
                     public void onItemClicked(RecyclerView recyclerView, int position, View v) {
                         System.out.println("reminder clicked");
-//                        adapterRecyclerViewNoteList.notifyItemRemoved(position); //item removed from recylcerview
+//                        adapterFirestoreRecyclerViewNoteList.notifyItemRemoved(position); //item removed from recylcerview
 //                        Reminder reminder = remindersList.remove(position);  //then remove item
                         // problem: when canceled the old reminder is not saved
                         // solution: add this reminder to the list when cancel is clicked
