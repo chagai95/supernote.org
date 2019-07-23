@@ -6,15 +6,18 @@ import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import android.content.Context;
 import android.content.Intent;
+import android.content.res.Resources;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.Bundle;
-import android.view.View;
 import android.widget.Toast;
 
+import com.example.firebaseui_firestoreexample.utils.MyApp;
 import com.firebase.ui.firestore.FirestoreRecyclerOptions;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.firestore.CollectionReference;
-import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreSettings;
 import com.google.firebase.firestore.Query;
@@ -24,11 +27,15 @@ public class MainActivity extends AppCompatActivity {
     private CollectionReference notebookRef = db.collection("Notebook");
 
     private NoteAdapter adapter;
+    static boolean isOnline;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+
+        MyApp.getFirstInstance().registerActivityLifecycleCallbacks(new MyActivityLifecycleCallbacks());
 
         FirebaseFirestoreSettings settings = new FirebaseFirestoreSettings.Builder()
                 .setPersistenceEnabled(true)
@@ -36,12 +43,7 @@ public class MainActivity extends AppCompatActivity {
         db.setFirestoreSettings(settings);
 
         FloatingActionButton buttonAddNote = findViewById(R.id.button_add_note);
-        buttonAddNote.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                startActivity(new Intent(MainActivity.this, NewNoteActivity.class));
-            }
-        });
+        buttonAddNote.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, NewNoteActivity.class)));
 
         setUpRecyclerView();
     }
@@ -73,17 +75,12 @@ public class MainActivity extends AppCompatActivity {
             }
         }).attachToRecyclerView(recyclerView);
 
-        adapter.setOnItemClickListener(new NoteAdapter.OnItemClickListener() {
-            @Override
-            public void onItemClick(DocumentSnapshot documentSnapshot, int position) {
-                Note note = documentSnapshot.toObject(Note .class);
-                String id = documentSnapshot.getId();
-                Toast.makeText(MainActivity.this, "Position: " + position + "\n ID: " + id, Toast.LENGTH_SHORT).show();
-                Intent intent = new Intent(MainActivity.this, EditNoteActivity.class);
-                intent.putExtra("documentID",id);
-                startActivity(intent);
+        adapter.setOnItemClickListener((documentSnapshot, position) -> {
+            String id = documentSnapshot.getId();
+            Intent intent = new Intent(MainActivity.this, EditNoteActivity.class);
+            intent.putExtra("documentID",id);
+            startActivity(intent);
 
-            }
         });
     }
 
@@ -97,5 +94,30 @@ public class MainActivity extends AppCompatActivity {
     protected void onStop() {
         super.onStop();
         adapter.stopListening();
+    }
+
+    @Override
+    public Resources.Theme getTheme() {
+        Resources.Theme theme = super.getTheme();
+        isOnline = isNetworkAvailable();
+//        skip this for now because it does not work. - tried to check if there can be a connection with google established.
+//        new Online().run();
+        if(isOnline )// && networkWorking)
+            theme.applyStyle(R.style.Online, true);
+        else
+            theme.applyStyle(R.style.Offline, true);
+        return theme;
+    }
+
+    private boolean isNetworkAvailable() {
+        ConnectivityManager manager =
+                (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo networkInfo = manager.getActiveNetworkInfo();
+        boolean isAvailable = false;
+        if (networkInfo != null && networkInfo.isConnected()) {
+            // Network is present and connected
+            isAvailable = true;
+        }
+        return isAvailable;
     }
 }

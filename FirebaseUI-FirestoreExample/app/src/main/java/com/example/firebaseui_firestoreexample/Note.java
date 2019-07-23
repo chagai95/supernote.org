@@ -1,10 +1,12 @@
 package com.example.firebaseui_firestoreexample;
 
+@SuppressWarnings("WeakerAccess")
 public class Note {
     private String title;
     private String description;
     private int priority;
 
+    @SuppressWarnings("unused")
     public Note(){
         // empty constructor needed for firebase
     }

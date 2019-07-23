@@ -1,30 +1,34 @@
 package com.example.firebaseui_firestoreexample;
 
-import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
-
+import android.content.Context;
+import android.content.res.Resources;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
-import android.view.View;
 import android.widget.EditText;
 import android.widget.NumberPicker;
+import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
+
+import com.example.firebaseui_firestoreexample.utils.MyApp;
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
-import com.google.firebase.firestore.EventListener;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.FirebaseFirestoreException;
-import com.google.firebase.firestore.FirebaseFirestoreSettings;
 import com.google.firebase.firestore.ListenerRegistration;
 
 import java.util.LinkedList;
-
-import javax.annotation.Nullable;
+import java.util.Objects;
 
 public class EditNoteActivity extends AppCompatActivity {
     private EditText editTextTitle;
@@ -32,9 +36,17 @@ public class EditNoteActivity extends AppCompatActivity {
     private NumberPicker numberPickerPriority;
 
     DocumentReference documentRef;
-    ListenerRegistration registration;
+    public static ListenerRegistration registration;
 
-    LinkedList<String> historyTitle;
+    TextWatcher textWatcherTitle;
+    TextWatcher textWatcherDescription;
+
+
+    static boolean isOnline;
+
+
+    Context c = this;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,9 +54,7 @@ public class EditNoteActivity extends AppCompatActivity {
         setContentView(R.layout.activity_edit_note);
 
 
-        historyTitle = new LinkedList<String>();
-
-        getSupportActionBar().setHomeAsUpIndicator(R.drawable.ic_close);
+        Objects.requireNonNull(getSupportActionBar()).setHomeAsUpIndicator(R.drawable.ic_close); // added Objects.requireNonNull to avoid warning
         setTitle("Edit note");
 
         editTextTitle = findViewById(R.id.edit_text_title);
@@ -53,30 +63,10 @@ public class EditNoteActivity extends AppCompatActivity {
 
         documentRef = FirebaseFirestore.getInstance()
                 .collection("Notebook")
-                .document(getIntent().getStringExtra("documentID"));
-
-        registration = documentRef.addSnapshotListener((documentSnapshot, e) -> {
-            if (e != null) {
-                Toast.makeText(EditNoteActivity.this, "Listen failed: " + e, Toast.LENGTH_SHORT).show();
-                System.err.println("Listen failed: " + e);
-                return;
-            }
-
-            if (documentSnapshot != null && documentSnapshot.exists()) {
-                Note note = documentSnapshot.toObject(Note.class);
-                if (note != null) {
-                    if (!documentSnapshot.getMetadata().hasPendingWrites()) {
-                        editTextTitle.setText(note.getTitle());
-                        editTextDescription.setText(note.getDescription());
-                        numberPickerPriority.setValue(note.getPriority());
-                    }
-                }
-            }
+                .document(Objects.requireNonNull(getIntent().getStringExtra("documentID")));  // added Objects.requireNonNull to avoid warning
 
 
-        });
-
-        editTextTitle.addTextChangedListener(new TextWatcher() {
+        textWatcherTitle = new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {
 
@@ -89,10 +79,26 @@ public class EditNoteActivity extends AppCompatActivity {
 
             @Override
             public void afterTextChanged(Editable editable) {
-                    documentRef.update("title", editable.toString());
+                if (MyApp.historyTitle.isEmpty())
+                    MyApp.historyTitle.add(editable.toString());
+                if (!MyApp.historyTitle.getLast().equals(editable.toString()))
+                    MyApp.historyTitle.add(editable.toString());
+                isOnline = isNetworkAvailable();
+                if (isOnline && !MyApp.updateFromServer) {
+                    documentRef.get().addOnCompleteListener(task -> {
+                        if (task.isSuccessful()) {
+                            DocumentSnapshot documentSnapshot = task.getResult();
+                            if (!MyApp.historyTitle.getLast().equals(Objects.requireNonNull(documentSnapshot.getData()).get("title")))
+                                MyApp.historyTitle.add((String) Objects.requireNonNull(documentSnapshot.getData()).get("title"));
+                            if(!documentSnapshot.getMetadata().isFromCache())
+                                documentRef.update("title", editable.toString());
+                        }
+                    });
+                }
             }
-        });
-        editTextDescription.addTextChangedListener(new TextWatcher() {
+        };
+        editTextTitle.addTextChangedListener(textWatcherTitle);
+        textWatcherDescription = new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {
 
@@ -109,11 +115,30 @@ public class EditNoteActivity extends AppCompatActivity {
                         "description", editable.toString()
                 );
             }
-        });
+        };
+        editTextDescription.addTextChangedListener(textWatcherDescription);
 
         numberPickerPriority.setMinValue(1);
         numberPickerPriority.setMaxValue(10);
 
+    }
+
+    private void chooseBetweenServerDataAndLocalData(String serverData) {
+        AlertDialog.Builder alert = new AlertDialog.Builder(c);
+        alert.setTitle("chooseBetweenServerDataAndLocalData");
+        alert.setMessage("chooseBetweenServerDataAndLocalData");
+// Create TextView
+        final TextView input = new TextView(c);
+        alert.setView(input);
+
+        alert.setPositiveButton("Server data", (dialog, whichButton) -> {
+            editTextTitle.setText(serverData);
+        });
+
+        alert.setNegativeButton("Local data", (dialog, whichButton) -> {
+            documentRef.update("title", editTextTitle.getText().toString());
+        });
+        alert.show();
     }
 
     @Override
@@ -125,6 +150,7 @@ public class EditNoteActivity extends AppCompatActivity {
 
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        //noinspection SwitchStatementWithTooFewBranches
         switch (item.getItemId()) {
             case R.id.save_note:
                 saveNote();
@@ -137,12 +163,84 @@ public class EditNoteActivity extends AppCompatActivity {
     @Override
     protected void onStop() {
         super.onStop();
+        System.out.println("size of list" + MyApp.historyTitle.size());
         for (String s :
-                historyTitle) {
+                MyApp.historyTitle) {
             System.out.println(s);
         }
+        if (registration != null)
+            registration.remove();
+    }
 
-        registration.remove();
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        if (MyApp.updateFromServer) {
+            MyApp.updateFromServer = false;
+            documentRef = FirebaseFirestore.getInstance()
+                    .collection("Notebook")
+                    .document(Objects.requireNonNull(getIntent().getStringExtra("documentID")));  // added Objects.requireNonNull to avoid warning
+            documentRef.get().addOnCompleteListener(task -> {
+                if (task.isSuccessful()) {
+                    DocumentSnapshot documentSnapshot = task.getResult();
+                    if (documentSnapshot.exists()) {
+                        if (!editTextTitle.getText().toString().equals((String) Objects.requireNonNull(documentSnapshot.getData()).get("title"))) {
+                            chooseBetweenServerDataAndLocalData((String) Objects.requireNonNull(documentSnapshot.getData()).get("title"));
+                        }
+                        editTextTitle.setText((String) Objects.requireNonNull(documentSnapshot.getData()).get("title"));
+                        if (!MyApp.historyTitle.getLast().equals(Objects.requireNonNull(documentSnapshot.getData()).get("title"))) {
+                            MyApp.historyTitle.add((String) Objects.requireNonNull(documentSnapshot.getData()).get("title"));
+                        }
+                    }
+                }
+            });
+            documentRef.get().addOnSuccessListener(documentSnapshot -> {
+                Note note = documentSnapshot.toObject(Note.class);
+                if (note != null) {
+                    if (!editTextTitle.getText().toString().equals(note.getTitle())) {
+                        chooseBetweenServerDataAndLocalData(note.getTitle());
+                    }
+                    if (!MyApp.historyTitle.getLast().equals(note.getTitle()))
+                        MyApp.historyTitle.add(note.getTitle());
+                }
+            });
+        }
+
+        isOnline = isNetworkAvailable();
+        if (isOnline)
+            registration = documentRef.addSnapshotListener((documentSnapshot, e) -> {
+                if (e != null) {
+                    Toast.makeText(EditNoteActivity.this, "Listen failed: " + e, Toast.LENGTH_SHORT).show();
+                    System.err.println("Listen failed: " + e);
+                    return;
+                }
+
+                if (documentSnapshot != null && documentSnapshot.exists()) {
+                    Note note = documentSnapshot.toObject(Note.class);
+                    if (note != null) {
+                        // check if the data in the server has newer date than the one in the editable and force it to be shown
+                        // this line should go off when the internet comes back on.
+                        if (!MyApp.historyTitle.isEmpty() && !MyApp.historyTitle.getLast().equals(note.getTitle()))
+                            MyApp.historyTitle.add(note.getTitle());
+                        if (!documentSnapshot.getMetadata().hasPendingWrites()) {
+                            if (!note.getTitle().equals(editTextTitle.toString())) {
+                                editTextTitle.removeTextChangedListener(textWatcherTitle);
+                                editTextTitle.setText(note.getTitle());
+                                editTextTitle.addTextChangedListener(textWatcherTitle);
+                            }
+                            if (!note.getDescription().equals(editTextDescription.toString())) {
+                                editTextDescription.removeTextChangedListener(textWatcherDescription);
+                                editTextDescription.setText(note.getDescription());
+                                editTextDescription.addTextChangedListener(textWatcherDescription);
+                            }
+                            numberPickerPriority.setValue(note.getPriority());
+                        }
+                    }
+                }
+
+
+            });
     }
 
     private void saveNote() {
@@ -163,7 +261,30 @@ public class EditNoteActivity extends AppCompatActivity {
         );
         Toast.makeText(this, "Note edited", Toast.LENGTH_SHORT).show();
         finish();
+    }
 
+    @Override
+    public Resources.Theme getTheme() {
+        Resources.Theme theme = super.getTheme();
+        isOnline = isNetworkAvailable();
+//        skip this for now because it does not work. - tried to check if there can be a connection with google established.
+//        new Online().run();
+        if (isOnline)// && networkWorking)
+            theme.applyStyle(R.style.Online, true);
+        else
+            theme.applyStyle(R.style.Offline, true);
+        return theme;
+    }
 
+    private boolean isNetworkAvailable() {
+        ConnectivityManager manager =
+                (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo networkInfo = manager.getActiveNetworkInfo();
+        boolean isAvailable = false;
+        if (networkInfo != null && networkInfo.isConnected()) {
+            // Network is present and connected
+            isAvailable = true;
+        }
+        return isAvailable;
     }
 }
