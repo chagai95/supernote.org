@@ -1,6 +1,5 @@
 package com.example.firebaseui_firestoreexample;
 
-import android.provider.DocumentsContract;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -17,7 +16,7 @@ public class NoteAdapter extends FirestoreRecyclerAdapter<Note, NoteAdapter.Note
 
     private OnItemClickListener listener;
 
-    public NoteAdapter(@NonNull FirestoreRecyclerOptions<Note> options) {
+    NoteAdapter(@NonNull FirestoreRecyclerOptions<Note> options) {
         super(options);
     }
 
@@ -36,7 +35,7 @@ public class NoteAdapter extends FirestoreRecyclerAdapter<Note, NoteAdapter.Note
         return new NoteHolder(v);
     }
 
-    public void deleteItem(int position){
+    void deleteItem(int position){
         getSnapshots().getSnapshot(position).getReference().delete();
     }
 
@@ -45,19 +44,16 @@ public class NoteAdapter extends FirestoreRecyclerAdapter<Note, NoteAdapter.Note
         TextView textViewDescription;
         TextView textViewPriority;
 
-        public NoteHolder(@NonNull View itemView) {
+        NoteHolder(@NonNull View itemView) {
             super(itemView);
             textViewTitle = itemView.findViewById(R.id.text_view_title);
             textViewDescription = itemView.findViewById(R.id.text_view_description);
             textViewPriority = itemView.findViewById(R.id.text_view_priority);
 
-            itemView.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View view) {
-                    int postion = getAdapterPosition();
-                    if(postion != RecyclerView.NO_POSITION && listener != null){
-                        listener.onItemClick(getSnapshots().getSnapshot(postion),postion);
-                    }
+            itemView.setOnClickListener(view -> {
+                int position = getAdapterPosition();
+                if(position != RecyclerView.NO_POSITION && listener != null){
+                    listener.onItemClick(getSnapshots().getSnapshot(position),position);
                 }
             });
         }
@@ -67,7 +63,7 @@ public class NoteAdapter extends FirestoreRecyclerAdapter<Note, NoteAdapter.Note
         void onItemClick(DocumentSnapshot documentSnapshot, int position);
     }
 
-    public void setOnItemClickListener(OnItemClickListener listener){
+    void setOnItemClickListener(OnItemClickListener listener){
         this.listener = listener;
     }
 }

@@ -6,14 +6,12 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.Intent;
+import android.os.Process;
 import android.widget.Toast;
 
 import com.example.firebaseui_firestoreexample.EditNoteActivity;
+import com.example.firebaseui_firestoreexample.InternetThread;
 import com.example.firebaseui_firestoreexample.MyActivityLifecycleCallbacks;
-import com.google.firebase.firestore.DocumentReference;
-import com.google.firebase.firestore.FirebaseFirestore;
-
-import java.util.Objects;
 
 public class NetworkChangeReceiver extends BroadcastReceiver {
 
@@ -35,6 +33,7 @@ public class NetworkChangeReceiver extends BroadcastReceiver {
                     MyApp.updateFromServer = true;
                 }
                 activity.recreate();
+
             }
         }
     }
@@ -47,6 +46,7 @@ public class NetworkChangeReceiver extends BroadcastReceiver {
             if (context instanceof Activity) {
                 return (Activity) context;
             } else {
+                //noinspection AccessStaticViaInstance
                 return new MyActivityLifecycleCallbacks().getCurrentActivity();
             }
         }

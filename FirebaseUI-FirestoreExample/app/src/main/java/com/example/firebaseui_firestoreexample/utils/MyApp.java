@@ -11,11 +11,15 @@ import java.util.LinkedList;
 public class MyApp extends Application {
     private static MyApp firstInstance;
     public static boolean updateFromServer;
+    public static String titleOldVersion;
+    public static long totalTime;
     public static LinkedList<String> historyTitle;
+
 
 
     public MyApp() {
         historyTitle = new LinkedList<>();
+        totalTime = 0;
     }
 
     public static synchronized MyApp getFirstInstance() {

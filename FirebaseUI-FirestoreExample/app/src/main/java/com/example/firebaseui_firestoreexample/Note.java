@@ -1,10 +1,13 @@
 package com.example.firebaseui_firestoreexample;
 
+import java.util.ArrayList;
+
 @SuppressWarnings("WeakerAccess")
 public class Note {
     private String title;
     private String description;
     private int priority;
+    private ArrayList<String> history;
 
     @SuppressWarnings("unused")
     public Note(){
@@ -14,6 +17,7 @@ public class Note {
         this.title = title;
         this.description = description;
         this.priority = priority;
+        history = new ArrayList<>();
     }
 
     public String getTitle() {
@@ -26,5 +30,9 @@ public class Note {
 
     public int getPriority() {
         return priority;
+    }
+
+    public ArrayList<String> getHistory() {
+        return history;
     }
 }

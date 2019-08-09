@@ -1,11 +1,14 @@
 package com.example.firebaseui_firestoreexample;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.Application;
 import android.os.Bundle;
 
+@SuppressWarnings("NullableProblems")
 public class MyActivityLifecycleCallbacks implements Application.ActivityLifecycleCallbacks {
 
+    @SuppressLint("StaticFieldLeak")
     private static Activity currentActivity;
 
     @Override

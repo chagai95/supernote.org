@@ -6,5 +6,6 @@
         android:icon="@drawable/ic_save"
         android:title="Save"
         app:showAsAction="ifRoom"/>
-
+    <item android:id="@+id/title_history"
+        android:title="title history"/>
 </menu>

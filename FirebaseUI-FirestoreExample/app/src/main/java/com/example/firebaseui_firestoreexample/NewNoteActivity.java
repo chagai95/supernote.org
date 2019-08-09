@@ -14,6 +14,7 @@ import android.widget.Toast;
 import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.FirebaseFirestore;
 
+import java.util.LinkedList;
 import java.util.Objects;
 
 public class NewNoteActivity extends AppCompatActivity {
@@ -72,7 +73,5 @@ public class NewNoteActivity extends AppCompatActivity {
         notebookRef.add(new Note(title, description, priority));
         Toast.makeText(this, "Note added", Toast.LENGTH_SHORT).show();
         finish();
-
-
     }
 }
