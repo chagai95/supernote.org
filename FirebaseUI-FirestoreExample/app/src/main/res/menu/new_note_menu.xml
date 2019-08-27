@@ -8,4 +8,6 @@
         app:showAsAction="ifRoom"/>
     <item android:id="@+id/title_history"
         android:title="title history"/>
+    <item android:id="@+id/save_for_use_offline"
+        android:title="save_for_use_offline"/>
 </menu>

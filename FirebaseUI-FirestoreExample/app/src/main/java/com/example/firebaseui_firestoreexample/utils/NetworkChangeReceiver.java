@@ -6,11 +6,9 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.Intent;
-import android.os.Process;
 import android.widget.Toast;
 
 import com.example.firebaseui_firestoreexample.EditNoteActivity;
-import com.example.firebaseui_firestoreexample.InternetThread;
 import com.example.firebaseui_firestoreexample.MyActivityLifecycleCallbacks;
 
 public class NetworkChangeReceiver extends BroadcastReceiver {
@@ -33,7 +31,6 @@ public class NetworkChangeReceiver extends BroadcastReceiver {
                     MyApp.updateFromServer = true;
                 }
                 activity.recreate();
-
             }
         }
     }
