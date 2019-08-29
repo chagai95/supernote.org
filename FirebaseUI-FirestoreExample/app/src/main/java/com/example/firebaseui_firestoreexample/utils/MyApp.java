@@ -6,8 +6,6 @@ import android.content.Context;
 import android.content.IntentFilter;
 import android.net.ConnectivityManager;
 
-import com.google.firebase.firestore.DocumentReference;
-
 import java.util.HashMap;
 import java.util.LinkedList;
 
@@ -17,17 +15,15 @@ public class MyApp extends Application {
     public static String titleOldVersion;
     public static long totalTime;
     public static LinkedList<String> historyTitle;
-    public static LinkedList<DocumentReference> notesOfflineDocRef;
+    public static HashMap<String,OfflineNoteData> allNotesOfflineNoteData;
 //    makeText(c, "might not be up to date last updated:", LENGTH_SHORT).show();
-    public static HashMap<String,DocumentReference> allNotesDocRef;
 
 
 
 
     public MyApp() {
         historyTitle = new LinkedList<>();
-        notesOfflineDocRef = new LinkedList<>();
-        allNotesDocRef = new HashMap<>();
+        allNotesOfflineNoteData = new HashMap<>();
         totalTime = 0;
     }
 

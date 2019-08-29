@@ -8,6 +8,7 @@ public class Note {
     private String description;
     private int priority;
     private ArrayList<String> history;
+    private boolean keepOffline;
 
     @SuppressWarnings("unused")
     public Note(){
@@ -18,6 +19,7 @@ public class Note {
         this.description = description;
         this.priority = priority;
         history = new ArrayList<>();
+        keepOffline = false;
     }
 
     public String getTitle() {
@@ -34,5 +36,9 @@ public class Note {
 
     public ArrayList<String> getHistory() {
         return history;
+    }
+
+    public boolean isKeepOffline() {
+        return keepOffline;
     }
 }

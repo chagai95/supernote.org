@@ -20,6 +20,7 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.firebaseui_firestoreexample.utils.MyApp;
+import com.example.firebaseui_firestoreexample.utils.OfflineNoteData;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
@@ -43,6 +44,7 @@ public class EditNoteActivity extends AppCompatActivity {
     TextWatcher textWatcherTitle;
     TextWatcher textWatcherDescription;
 
+    OfflineNoteData offlineNoteData;
 
     @SuppressWarnings("unused")
     private FirebaseFirestore db = FirebaseFirestore.getInstance();
@@ -63,12 +65,9 @@ public class EditNoteActivity extends AppCompatActivity {
         editTextDescription = findViewById(R.id.edit_text_description);
         numberPickerPriority = findViewById(R.id.number_picker_priority);
         documentID = Objects.requireNonNull(getIntent().getStringExtra("documentID"));
-        if (isNetworkAvailable())
-            documentRef = FirebaseFirestore.getInstance()
-                    .collection("Notebook")
-                    .document(documentID);  // added Objects.requireNonNull to avoid warning
-        else
-            documentRef = MyApp.allNotesDocRef.get(documentID);
+        offlineNoteData = Objects.requireNonNull(MyApp.allNotesOfflineNoteData.get(documentID));
+        documentRef = offlineNoteData.getDocumentReference();
+
 
         textWatcherTitle = new TextWatcher() {
             @Override
@@ -175,7 +174,12 @@ public class EditNoteActivity extends AppCompatActivity {
     }
 
     private void saveForUseOffline() {
-        MyApp.notesOfflineDocRef.add(documentRef);
+        documentRef.update("keepOffline", true);
+        offlineNoteData.setKeepOffline(true);
+
+//        add a color or a symbol to show this note is kept offline.
+//        make save_for_use_offline invisible and add another menu case for deactivating.
+//        check in the other app's code how it is done.
     }
 
     private void titleHistory() {
@@ -195,6 +199,14 @@ public class EditNoteActivity extends AppCompatActivity {
         }*/
         if (registration != null)
             registration.remove();
+        if(offlineNoteData.isKeepOffline()){
+            ListenerRegistration listenerRegistration = documentRef.addSnapshotListener((documentSnapshot, e) -> {
+                if (e != null) {
+                    System.err.println("Listen failed: " + e);
+                }
+            });
+            offlineNoteData.setListenerRegistration(listenerRegistration);
+        }
     }
 
     @Override
@@ -203,10 +215,6 @@ public class EditNoteActivity extends AppCompatActivity {
 
         if (MyApp.updateFromServer) {
             MyApp.updateFromServer = false;
-            documentRef = FirebaseFirestore.getInstance()
-                    .collection("Notebook")
-                    .document(documentID);  // added Objects.requireNonNull to avoid warning
-
             documentRef.get().addOnCompleteListener(task -> {
                 if (task.isSuccessful()) {
                     DocumentSnapshot documentSnapshot = task.getResult();
@@ -238,9 +246,8 @@ public class EditNoteActivity extends AppCompatActivity {
             MyApp.titleOldVersion = null;
         }
         if (isNetworkAvailable()) {
-            documentRef = FirebaseFirestore.getInstance()
-                    .collection("Notebook")
-                    .document(documentID);  // added Objects.requireNonNull to avoid warning
+            if (offlineNoteData.isKeepOffline())
+                offlineNoteData.getListenerRegistration().remove();
             registration = documentRef.addSnapshotListener((documentSnapshot, e) -> {
                 if (e != null) {
                     makeText(EditNoteActivity.this, "Listen failed: " + e, LENGTH_SHORT).show();
@@ -280,19 +287,16 @@ public class EditNoteActivity extends AppCompatActivity {
 
 
             });
-        }
-        else
-            if(documentRef != null) {
-                documentRef.get().addOnCompleteListener(task -> {
-                    if (task.isSuccessful()) {
-                        DocumentSnapshot documentSnapshot = task.getResult();
-                        if (Objects.requireNonNull(documentSnapshot).exists()) {
-                            editTextTitle.setText((String) Objects.requireNonNull(documentSnapshot.getData()).get("title"));
-                            editTextDescription.setText((String) Objects.requireNonNull(documentSnapshot.getData()).get("description"));
-                        }
+        } else
+            documentRef.get().addOnCompleteListener(task -> {
+                if (task.isSuccessful()) {
+                    DocumentSnapshot documentSnapshot = task.getResult();
+                    if (Objects.requireNonNull(documentSnapshot).exists()) {
+                        editTextTitle.setText((String) Objects.requireNonNull(documentSnapshot.getData()).get("title"));
+                        editTextDescription.setText((String) Objects.requireNonNull(documentSnapshot.getData()).get("description"));
                     }
-                });
-        }
+                }
+            });
     }
 
     private void saveNote() {

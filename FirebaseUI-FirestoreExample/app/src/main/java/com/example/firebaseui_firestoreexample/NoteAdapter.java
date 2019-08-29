@@ -4,18 +4,17 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.firebaseui_firestoreexample.utils.MyApp;
+import com.example.firebaseui_firestoreexample.utils.OfflineNoteData;
 import com.firebase.ui.firestore.FirestoreRecyclerAdapter;
 import com.firebase.ui.firestore.FirestoreRecyclerOptions;
-import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.Task;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.ListenerRegistration;
 
 import java.util.Objects;
 
@@ -34,24 +33,42 @@ public class NoteAdapter extends FirestoreRecyclerAdapter<Note, NoteAdapter.Note
         holder.textViewPriority.setText(String.valueOf(model.getPriority()));
     }
 
+    @SuppressWarnings("ConstantConditions")
     @NonNull
     @Override
     public NoteHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View v = LayoutInflater.from(parent.getContext()).inflate(R.layout.note_item,parent,false);
+        View v = LayoutInflater.from(parent.getContext()).inflate(R.layout.note_item, parent, false);
 //      since I don't know how to get the position of the newly added note we (fow now) just put all notes
 //      every time this method is called in a map which basically means no duplicates.
         for (int i = 0; i < getItemCount(); i++) {
             DocumentReference documentReference = getSnapshots().getSnapshot(i).getReference();
-            MyApp.allNotesDocRef.put(documentReference.getId(),documentReference);
+            MyApp.allNotesOfflineNoteData.put(documentReference.getId(), new OfflineNoteData(documentReference));
+            Objects.requireNonNull(documentReference).get().addOnCompleteListener(taskForKeepOfflineCheck -> {
+                if (taskForKeepOfflineCheck.isSuccessful()) {
+                    OfflineNoteData offlineNoteData = MyApp.allNotesOfflineNoteData.get(documentReference.getId());
+                    DocumentSnapshot documentSnapshotForKeepOfflineCheck = taskForKeepOfflineCheck.getResult();
+                    Note note = Objects.requireNonNull(documentSnapshotForKeepOfflineCheck).toObject(Note.class);
+                    offlineNoteData.setNote(note);
+                    offlineNoteData.setKeepOffline(note.isKeepOffline());
+                    if (Objects.requireNonNull(note).isKeepOffline()) {
+                        ListenerRegistration listenerRegistration = documentReference.addSnapshotListener((documentSnapshot, e) -> {
+                            if (e != null) {
+                                System.err.println("Listen failed: " + e);
+                            }
+                        });
+                        offlineNoteData.setListenerRegistration(listenerRegistration);
+                    }
+                }
+            });
         }
         return new NoteHolder(v);
     }
 
-    void deleteItem(int position){
+    void deleteItem(int position) {
         getSnapshots().getSnapshot(position).getReference().delete();
     }
 
-    class NoteHolder extends RecyclerView.ViewHolder{
+    class NoteHolder extends RecyclerView.ViewHolder {
         TextView textViewTitle;
         TextView textViewDescription;
         TextView textViewPriority;
@@ -64,8 +81,8 @@ public class NoteAdapter extends FirestoreRecyclerAdapter<Note, NoteAdapter.Note
 
             itemView.setOnClickListener(view -> {
                 int position = getAdapterPosition();
-                if(position != RecyclerView.NO_POSITION && listener != null){
-                    listener.onItemClick(getSnapshots().getSnapshot(position),position);
+                if (position != RecyclerView.NO_POSITION && listener != null) {
+                    listener.onItemClick(getSnapshots().getSnapshot(position), position);
                 }
             });
         }
@@ -75,7 +92,7 @@ public class NoteAdapter extends FirestoreRecyclerAdapter<Note, NoteAdapter.Note
         void onItemClick(DocumentSnapshot documentSnapshot, int position);
     }
 
-    void setOnItemClickListener(OnItemClickListener listener){
+    void setOnItemClickListener(OnItemClickListener listener) {
         this.listener = listener;
     }
 }
