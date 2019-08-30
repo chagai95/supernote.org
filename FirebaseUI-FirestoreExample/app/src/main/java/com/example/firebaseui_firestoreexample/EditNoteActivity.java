@@ -51,6 +51,10 @@ public class EditNoteActivity extends AppCompatActivity {
 
     Context c = this;
 
+    boolean lastOnlineState;
+    boolean onCreateCalled;
+    private boolean keepOffline;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -67,6 +71,7 @@ public class EditNoteActivity extends AppCompatActivity {
         documentID = Objects.requireNonNull(getIntent().getStringExtra("documentID"));
         offlineNoteData = Objects.requireNonNull(MyApp.allNotesOfflineNoteData.get(documentID));
         documentRef = offlineNoteData.getDocumentReference();
+        onCreateCalled = true;
 
 
         textWatcherTitle = new TextWatcher() {
@@ -131,7 +136,7 @@ public class EditNoteActivity extends AppCompatActivity {
     }
 
     private void successfulUpload() {
-        makeText(this, "uploaded successfully", LENGTH_SHORT).show();
+//        makeText(this, "uploaded successfully", LENGTH_SHORT).show();
     }
 
 
@@ -168,15 +173,22 @@ public class EditNoteActivity extends AppCompatActivity {
             case R.id.save_for_use_offline:
                 saveForUseOffline();
                 return true;
+            case R.id.save_for_load_to_cache:
+                saveForLoadToCache();
+                return true;
             default:
                 return super.onOptionsItemSelected(item);
         }
     }
 
+    private void saveForLoadToCache() {
+        documentRef.update("loadToCache",true);
+        MyApp.loadToCacheList.add(documentRef);
+    }
+
     private void saveForUseOffline() {
         documentRef.update("keepOffline", true);
-        offlineNoteData.setKeepOffline(true);
-
+        keepOffline = true;
 //        add a color or a symbol to show this note is kept offline.
 //        make save_for_use_offline invisible and add another menu case for deactivating.
 //        check in the other app's code how it is done.
@@ -192,6 +204,9 @@ public class EditNoteActivity extends AppCompatActivity {
     @Override
     protected void onStop() {
         super.onStop();
+        MyApp.activityEditNoteStopped();
+        lastOnlineState = isNetworkAvailable();
+        onCreateCalled = false;
         /*System.out.println("size of list" + MyApp.historyTitle.size());
         for (String s :
                 MyApp.historyTitle) {
@@ -199,20 +214,27 @@ public class EditNoteActivity extends AppCompatActivity {
         }*/
         if (registration != null)
             registration.remove();
-        if(offlineNoteData.isKeepOffline()){
-            ListenerRegistration listenerRegistration = documentRef.addSnapshotListener((documentSnapshot, e) -> {
-                if (e != null) {
-                    System.err.println("Listen failed: " + e);
+        documentRef.get().addOnCompleteListener(task -> {
+            if (task.isSuccessful()) {
+                Note note = Objects.requireNonNull(task.getResult()).toObject(Note.class);
+                if (keepOffline || Objects.requireNonNull(note).isKeepOffline()) {
+                    ListenerRegistration listenerRegistration = documentRef.addSnapshotListener((documentSnapshot, e) -> {
+                        if (e != null) {
+                            System.err.println("Listen failed: " + e);
+                        }
+                    });
+                    offlineNoteData.setListenerRegistration(listenerRegistration);
                 }
-            });
-            offlineNoteData.setListenerRegistration(listenerRegistration);
-        }
+            }
+        });
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-
+        MyApp.activityEditNoteResumed();
+        if (!onCreateCalled && lastOnlineState != isNetworkAvailable())
+            recreate();
         if (MyApp.updateFromServer) {
             MyApp.updateFromServer = false;
             documentRef.get().addOnCompleteListener(task -> {
@@ -246,7 +268,7 @@ public class EditNoteActivity extends AppCompatActivity {
             MyApp.titleOldVersion = null;
         }
         if (isNetworkAvailable()) {
-            if (offlineNoteData.isKeepOffline())
+            if (offlineNoteData.getListenerRegistration() != null)
                 offlineNoteData.getListenerRegistration().remove();
             registration = documentRef.addSnapshotListener((documentSnapshot, e) -> {
                 if (e != null) {

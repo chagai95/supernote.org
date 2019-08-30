@@ -38,14 +38,21 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.text.DecimalFormat;
+import java.util.Calendar;
 import java.util.Objects;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends AppCompatActivity {
     private FirebaseFirestore db = FirebaseFirestore.getInstance();
-    private CollectionReference notebookRef = db.collection("Notebook");
+    private CollectionReference notebookRef;
+
 
     private NoteAdapter adapter;
-    static boolean isOnline;
+
+    boolean lastOnlineState;
+    boolean onCreateCalled;
     InternetThread internetThread;
 
     @Override
@@ -56,11 +63,13 @@ public class MainActivity extends AppCompatActivity {
 
         MyApp.getFirstInstance().registerActivityLifecycleCallbacks(new MyActivityLifecycleCallbacks());
 
+        long long1mb = 1048576L;
         FirebaseFirestoreSettings settings = new FirebaseFirestoreSettings.Builder()
                 .setPersistenceEnabled(true)
-                .setCacheSizeBytes(FirebaseFirestoreSettings.CACHE_SIZE_UNLIMITED)
+                .setCacheSizeBytes(long1mb)
                 .build();
         db.setFirestoreSettings(settings);
+        notebookRef = db.collection("Notebook");
 
         FloatingActionButton buttonAddNote = findViewById(R.id.button_add_note);
         buttonAddNote.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, NewNoteActivity.class)));
@@ -68,6 +77,21 @@ public class MainActivity extends AppCompatActivity {
         setUpRecyclerView();
 
         reception();
+
+        onCreateCalled = true;
+        Calendar today = Calendar.getInstance();
+        today.set(Calendar.HOUR_OF_DAY, 2);
+        today.set(Calendar.MINUTE, 0);
+        today.set(Calendar.SECOND, 0);
+
+// every night at 2am you run your task
+        Timer timer = new Timer();
+        TimerTask timerTask = new TimerTask() {
+            public void run() {
+                MyApp.loadToCache();
+            }
+        };
+        timer.schedule(timerTask, today.getTime(), TimeUnit.MILLISECONDS.convert(1, TimeUnit.DAYS)); // period: 1 day
     }
 
     private void reception() {
@@ -121,22 +145,26 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStop() {
         super.onStop();
+        MyApp.activityStopped();
+        lastOnlineState = isNetworkAvailable();
+        onCreateCalled = false;
         adapter.stopListening();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        getTheme();
+        MyApp.activityResumed();
+        if(!onCreateCalled && lastOnlineState!= isNetworkAvailable())
+            recreate();
     }
 
     @Override
     public Resources.Theme getTheme() {
         Resources.Theme theme = super.getTheme();
-        isOnline = isNetworkAvailable();
 //        skip this for now because it does not work. - tried to check if there can be a connection with google established.
 //        new Online().run();
-        if(isOnline )// && networkWorking)
+        if(isNetworkAvailable())// && networkWorking)
             theme.applyStyle(R.style.Online, true);
         else
             theme.applyStyle(R.style.Offline, true);

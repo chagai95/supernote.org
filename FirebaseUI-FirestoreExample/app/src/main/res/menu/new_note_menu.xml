@@ -10,4 +10,6 @@
         android:title="title history"/>
     <item android:id="@+id/save_for_use_offline"
         android:title="@string/activate_use_offline"/>
+    <item android:id="@+id/save_for_load_to_cache"
+        android:title="@string/activate_load_to_cache"/>
 </menu>

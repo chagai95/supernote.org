@@ -16,7 +16,8 @@ import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.ListenerRegistration;
 
-import java.util.Objects;
+import java.util.Map;
+
 
 public class NoteAdapter extends FirestoreRecyclerAdapter<Note, NoteAdapter.NoteHolder> {
 
@@ -41,25 +42,21 @@ public class NoteAdapter extends FirestoreRecyclerAdapter<Note, NoteAdapter.Note
 //      since I don't know how to get the position of the newly added note we (fow now) just put all notes
 //      every time this method is called in a map which basically means no duplicates.
         for (int i = 0; i < getItemCount(); i++) {
-            DocumentReference documentReference = getSnapshots().getSnapshot(i).getReference();
+            DocumentSnapshot docSnapshot = getSnapshots().getSnapshot(i);
+            Note note = docSnapshot.toObject(Note.class);
+            DocumentReference documentReference = docSnapshot.getReference();
             MyApp.allNotesOfflineNoteData.put(documentReference.getId(), new OfflineNoteData(documentReference));
-            Objects.requireNonNull(documentReference).get().addOnCompleteListener(taskForKeepOfflineCheck -> {
-                if (taskForKeepOfflineCheck.isSuccessful()) {
-                    OfflineNoteData offlineNoteData = MyApp.allNotesOfflineNoteData.get(documentReference.getId());
-                    DocumentSnapshot documentSnapshotForKeepOfflineCheck = taskForKeepOfflineCheck.getResult();
-                    Note note = Objects.requireNonNull(documentSnapshotForKeepOfflineCheck).toObject(Note.class);
-                    offlineNoteData.setNote(note);
-                    offlineNoteData.setKeepOffline(note.isKeepOffline());
-                    if (Objects.requireNonNull(note).isKeepOffline()) {
-                        ListenerRegistration listenerRegistration = documentReference.addSnapshotListener((documentSnapshot, e) -> {
-                            if (e != null) {
-                                System.err.println("Listen failed: " + e);
-                            }
-                        });
-                        offlineNoteData.setListenerRegistration(listenerRegistration);
+            OfflineNoteData offlineNoteData = MyApp.allNotesOfflineNoteData.get(documentReference.getId());
+            if(note.isKeepOffline()){
+                ListenerRegistration listenerRegistration = documentReference.addSnapshotListener((documentSnapshot, e) -> {
+                    if (e != null) {
+                        System.err.println("Listen failed: " + e);
                     }
-                }
-            });
+                });
+                offlineNoteData.setListenerRegistration(listenerRegistration);
+            }
+            if(note.isLoadToCache())
+                MyApp.loadToCacheList.add(documentReference);
         }
         return new NoteHolder(v);
     }

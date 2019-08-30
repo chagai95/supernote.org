@@ -9,6 +9,8 @@ public class Note {
     private int priority;
     private ArrayList<String> history;
     private boolean keepOffline;
+    private boolean loadToCache;
+
 
     @SuppressWarnings("unused")
     public Note(){
@@ -20,6 +22,7 @@ public class Note {
         this.priority = priority;
         history = new ArrayList<>();
         keepOffline = false;
+        loadToCache = false;
     }
 
     public String getTitle() {
@@ -40,5 +43,9 @@ public class Note {
 
     public boolean isKeepOffline() {
         return keepOffline;
+    }
+
+    public boolean isLoadToCache() {
+        return loadToCache;
     }
 }

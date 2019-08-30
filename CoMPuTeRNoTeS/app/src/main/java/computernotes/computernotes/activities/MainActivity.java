@@ -371,8 +371,9 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onResume() {
+        super.onResume();
         if(loggedIn)
-        adapterFirestoreRecyclerViewNoteList.notifyDataSetChanged();
+//        adapterFirestoreRecyclerViewNoteList.notifyDataSetChanged();
         super.onResume();
     }
 

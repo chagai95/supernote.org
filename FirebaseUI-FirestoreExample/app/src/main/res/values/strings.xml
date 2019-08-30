@@ -4,5 +4,6 @@
     <string name="description">Description</string>
     <string name="priority">Priority</string>
     <string name="activate_use_offline">save_for_use_offline</string>
+    <string name="activate_load_to_cache">load to cache every ____</string>
     <string name="deactivate_use_offline">deactivate use offline</string>
 </resources>
