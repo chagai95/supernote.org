@@ -8,6 +8,7 @@ import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.Message;
 import android.os.Process;
 import android.util.Log;
@@ -59,7 +60,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        mDecimalFormater=new DecimalFormat("##.##");
+        mDecimalFormater = new DecimalFormat("##.##");
 
         MyApp.getFirstInstance().registerActivityLifecycleCallbacks(new MyActivityLifecycleCallbacks());
 
@@ -80,8 +81,8 @@ public class MainActivity extends AppCompatActivity {
 
         onCreateCalled = true;
         Calendar today = Calendar.getInstance();
-        today.set(Calendar.HOUR_OF_DAY, 2);
-        today.set(Calendar.MINUTE, 0);
+        today.set(Calendar.HOUR_OF_DAY, 11);
+        today.set(Calendar.MINUTE, 12);
         today.set(Calendar.SECOND, 0);
 
 // every night at 2am you run your task
@@ -107,7 +108,7 @@ public class MainActivity extends AppCompatActivity {
                 .setQuery(query, Note.class)
                 .build();
 
-        adapter = new NoteAdapter(options);
+        adapter = new NoteAdapter(options,this,getIntent().getBooleanExtra("startAppAndCloseMainActivity",false));
         RecyclerView recyclerView = findViewById(R.id.recycler_view);
         recyclerView.setHasFixedSize(true);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
@@ -155,7 +156,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         MyApp.activityResumed();
-        if(!onCreateCalled && lastOnlineState!= isNetworkAvailable())
+        if (!onCreateCalled && lastOnlineState != isNetworkAvailable())
             recreate();
     }
 
@@ -164,7 +165,7 @@ public class MainActivity extends AppCompatActivity {
         Resources.Theme theme = super.getTheme();
 //        skip this for now because it does not work. - tried to check if there can be a connection with google established.
 //        new Online().run();
-        if(isNetworkAvailable())// && networkWorking)
+        if (isNetworkAvailable())// && networkWorking)
             theme.applyStyle(R.style.Online, true);
         else
             theme.applyStyle(R.style.Offline, true);
@@ -195,7 +196,7 @@ public class MainActivity extends AppCompatActivity {
         //noinspection SwitchStatementWithTooFewBranches
         switch (item.getItemId()) {
             case R.id.speed_test:
-                Toast.makeText(this, "last speed recorded: " + MyApp.totalTime/1000, Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "last speed recorded: " + MyApp.totalTime / 1000, Toast.LENGTH_SHORT).show();
                 reception();
                 return true;
             default:
@@ -204,16 +205,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-
-
-
     @SuppressLint("HandlerLeak")
-    private final Handler mHandler=new Handler(){
+    private final Handler mHandler = new Handler() {
         @Override
         public void handleMessage(final Message msg) {
-            switch(msg.what){
+            switch (msg.what) {
                 case MSG_UPDATE_STATUS:
-                    final SpeedInfo info1=(SpeedInfo) msg.obj;
+                    final SpeedInfo info1 = (SpeedInfo) msg.obj;
                     mTxtSpeed.setText(String.format("0x7f040004", mDecimalFormater.format(info1.kilobits)));
                     // Title progress is in range 0..10000
                     setProgress(100 * msg.arg1);
@@ -223,14 +221,14 @@ public class MainActivity extends AppCompatActivity {
                     mTxtConnectionSpeed.setText(String.format("0x7f040006", msg.arg1));
                     break;
                 case MSG_COMPLETE_STATUS:
-                    final  SpeedInfo info2=(SpeedInfo) msg.obj;
+                    final SpeedInfo info2 = (SpeedInfo) msg.obj;
                     mTxtSpeed.setText(String.format("0x7f040007", msg.arg1, info2.kilobits));
 
                     mTxtProgress.setText(String.format("0x7f040005", msg.arg1, EXPECTED_SIZE_IN_BYTES));
 
-                    if(networkType(info2.kilobits)==1){
+                    if (networkType(info2.kilobits) == 1) {
                         mTxtNetwork.setText("0x7f040002");
-                    }else{
+                    } else {
                         mTxtNetwork.setText("0x7f040001");
                     }
 
@@ -244,64 +242,63 @@ public class MainActivity extends AppCompatActivity {
     /**
      * Our Slave worker that does actually all the work
      */
-    private final Runnable mWorker=new Runnable(){
+    private final Runnable mWorker = new Runnable() {
 
         @Override
         public void run() {
-            InputStream stream=null;
+            InputStream stream = null;
             try {
-                int bytesIn=0;
-                String downloadFileUrl="http://www.gregbugaj.com/wp-content/uploads/2009/03/dummy.txt";
-                long startCon=System.currentTimeMillis();
-                URL url=new URL(downloadFileUrl);
-                URLConnection con=url.openConnection();
+                int bytesIn = 0;
+                String downloadFileUrl = "http://www.gregbugaj.com/wp-content/uploads/2009/03/dummy.txt";
+                long startCon = System.currentTimeMillis();
+                URL url = new URL(downloadFileUrl);
+                URLConnection con = url.openConnection();
                 con.setUseCaches(false);
-                long connectionLatency=System.currentTimeMillis()- startCon;
-                stream=con.getInputStream();
+                long connectionLatency = System.currentTimeMillis() - startCon;
+                stream = con.getInputStream();
 
-                Message msgUpdateConnection= Message.obtain(mHandler, MSG_UPDATE_CONNECTION_TIME);
-                msgUpdateConnection.arg1=(int) connectionLatency;
+                Message msgUpdateConnection = Message.obtain(mHandler, MSG_UPDATE_CONNECTION_TIME);
+                msgUpdateConnection.arg1 = (int) connectionLatency;
                 mHandler.sendMessage(msgUpdateConnection);
 
-                long start=System.currentTimeMillis();
-                int currentByte=0;
-                long updateStart=System.currentTimeMillis();
-                long updateDelta=0;
-                int  bytesInThreshold=0;
+                long start = System.currentTimeMillis();
+                int currentByte = 0;
+                long updateStart = System.currentTimeMillis();
+                long updateDelta = 0;
+                int bytesInThreshold = 0;
 
-                while((currentByte=stream.read())!=-1){
+                while ((currentByte = stream.read()) != -1) {
                     bytesIn++;
                     bytesInThreshold++;
-                    if(updateDelta>=UPDATE_THRESHOLD){
-                        int progress=(int)((bytesIn/(double)EXPECTED_SIZE_IN_BYTES)*100);
-                        Message msg=Message.obtain(mHandler, MSG_UPDATE_STATUS, calculate(updateDelta, bytesInThreshold));
-                        msg.arg1=progress;
-                        msg.arg2=bytesIn;
+                    if (updateDelta >= UPDATE_THRESHOLD) {
+                        int progress = (int) ((bytesIn / (double) EXPECTED_SIZE_IN_BYTES) * 100);
+                        Message msg = Message.obtain(mHandler, MSG_UPDATE_STATUS, calculate(updateDelta, bytesInThreshold));
+                        msg.arg1 = progress;
+                        msg.arg2 = bytesIn;
                         mHandler.sendMessage(msg);
                         //Reset
-                        updateStart=System.currentTimeMillis();
-                        bytesInThreshold=0;
+                        updateStart = System.currentTimeMillis();
+                        bytesInThreshold = 0;
                     }
-                    updateDelta = System.currentTimeMillis()- updateStart;
+                    updateDelta = System.currentTimeMillis() - updateStart;
                 }
 
-                long downloadTime=(System.currentTimeMillis()-start);
+                long downloadTime = (System.currentTimeMillis() - start);
                 //Prevent AritchmeticException
-                if(downloadTime==0){
-                    downloadTime=1;
+                if (downloadTime == 0) {
+                    downloadTime = 1;
                 }
 
-                Message msg=Message.obtain(mHandler, MSG_COMPLETE_STATUS, calculate(downloadTime, bytesIn));
-                msg.arg1=bytesIn;
+                Message msg = Message.obtain(mHandler, MSG_COMPLETE_STATUS, calculate(downloadTime, bytesIn));
+                msg.arg1 = bytesIn;
                 mHandler.sendMessage(msg);
-            }
-            catch (MalformedURLException e) {
+            } catch (MalformedURLException e) {
                 Log.e(TAG, e.getMessage());
             } catch (IOException e) {
                 Log.e(TAG, e.getMessage());
-            }finally{
+            } finally {
                 try {
-                    if(stream!=null){
+                    if (stream != null) {
                         stream.close();
                     }
                 } catch (IOException e) {
@@ -314,48 +311,48 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * Get Network type from download rate
+     *
      * @return 0 for Edge and 1 for 3G
      */
-    private int networkType(final double kbps){
-        int type=1;//3G
+    private int networkType(final double kbps) {
+        int type = 1;//3G
         //Check if its EDGE
-        if(kbps<EDGE_THRESHOLD){
-            type=0;
+        if (kbps < EDGE_THRESHOLD) {
+            type = 0;
         }
         return type;
     }
 
     /**
-     *
      * 1 byte = 0.0078125 kilobits
      * 1 kilobits = 0.0009765625 megabit
      *
      * @param downloadTime in miliseconds
-     * @param bytesIn number of bytes downloaded
+     * @param bytesIn      number of bytes downloaded
      * @return SpeedInfo containing current speed
      */
-    private SpeedInfo calculate(final long downloadTime, final long bytesIn){
-        SpeedInfo info=new SpeedInfo();
+    private SpeedInfo calculate(final long downloadTime, final long bytesIn) {
+        SpeedInfo info = new SpeedInfo();
         //from mil to sec
-        long bytespersecond   =(bytesIn / downloadTime) * 1000;
-        double kilobits=bytespersecond * BYTE_TO_KILOBIT;
-        double megabits=kilobits  * KILOBIT_TO_MEGABIT;
-        info.downspeed=bytespersecond;
-        info.kilobits=kilobits;
-        info.megabits=megabits;
+        long bytespersecond = (bytesIn / downloadTime) * 1000;
+        double kilobits = bytespersecond * BYTE_TO_KILOBIT;
+        double megabits = kilobits * KILOBIT_TO_MEGABIT;
+        info.downspeed = bytespersecond;
+        info.kilobits = kilobits;
+        info.megabits = megabits;
 
         return info;
     }
 
     /**
      * Transfer Object
-     * @author devil
      *
+     * @author devil
      */
-    private static class SpeedInfo{
-        public double kilobits=0;
-        public double megabits=0;
-        public double downspeed=0;
+    private static class SpeedInfo {
+        public double kilobits = 0;
+        public double megabits = 0;
+        public double downspeed = 0;
     }
 
 
@@ -373,11 +370,11 @@ public class MainActivity extends AppCompatActivity {
     private TextView mTxtProgress;
     private TextView mTxtNetwork;
 
-    private final int MSG_UPDATE_STATUS=0;
-    private final int MSG_UPDATE_CONNECTION_TIME=1;
-    private final int MSG_COMPLETE_STATUS=2;
+    private final int MSG_UPDATE_STATUS = 0;
+    private final int MSG_UPDATE_CONNECTION_TIME = 1;
+    private final int MSG_COMPLETE_STATUS = 2;
 
-    private final static int UPDATE_THRESHOLD=300;
+    private final static int UPDATE_THRESHOLD = 300;
 
 
     private DecimalFormat mDecimalFormater;

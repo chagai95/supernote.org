@@ -183,7 +183,7 @@ public class EditNoteActivity extends AppCompatActivity {
 
     private void saveForLoadToCache() {
         documentRef.update("loadToCache",true);
-        MyApp.loadToCacheList.add(documentRef);
+        MyApp.loadToCacheMap.put(documentID,documentRef);
     }
 
     private void saveForUseOffline() {

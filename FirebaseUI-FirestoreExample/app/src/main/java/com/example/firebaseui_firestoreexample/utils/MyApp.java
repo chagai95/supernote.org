@@ -6,7 +6,13 @@ import android.content.Context;
 import android.content.IntentFilter;
 import android.net.ConnectivityManager;
 
+import androidx.annotation.NonNull;
+
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
 import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.Source;
 
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -17,10 +23,11 @@ public class MyApp extends Application {
     public static String titleOldVersion;
     public static long totalTime;
     public static LinkedList<String> historyTitle;
-    public static LinkedList<DocumentReference> loadToCacheList;
+    public static HashMap<String,DocumentReference> loadToCacheMap;
     public static HashMap<String,OfflineNoteData> allNotesOfflineNoteData;
     private static boolean activityVisible;
     private static boolean activityEditNoteVisible;
+    private static boolean backUpFailed;
 //    makeText(c, "might not be up to date last updated:", LENGTH_SHORT).show();
 
 
@@ -28,9 +35,10 @@ public class MyApp extends Application {
 
     public MyApp() {
         historyTitle = new LinkedList<>();
-        loadToCacheList = new LinkedList<>();
+        loadToCacheMap = new HashMap<>();
         allNotesOfflineNoteData = new HashMap<>();
         totalTime = 0;
+        backUpFailed = false;
     }
 
     public static synchronized MyApp getFirstInstance() {
@@ -83,11 +91,25 @@ public class MyApp extends Application {
         activityEditNoteVisible = false;
     }
 
+    public static boolean isBackUpFailed() {
+        return backUpFailed;
+    }
+
+    public static void setBackUpFailed(boolean backUpFailed) {
+        MyApp.backUpFailed = backUpFailed;
+    }
+
     @SuppressWarnings("unused")
     public static void loadToCache(){
         for (DocumentReference documentReference:
-                loadToCacheList) {
-            documentReference.get();
+                loadToCacheMap.values()) {
+            documentReference.get(Source.SERVER).addOnCompleteListener(task -> {
+                if(task.isSuccessful()){
+                    backUpFailed = false;
+                } else {
+                    backUpFailed = true;
+                }
+            });
         }
     }
 

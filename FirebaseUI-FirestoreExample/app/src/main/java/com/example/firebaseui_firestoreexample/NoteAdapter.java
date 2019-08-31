@@ -1,5 +1,6 @@
 package com.example.firebaseui_firestoreexample;
 
+import android.app.Activity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -16,15 +17,17 @@ import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.ListenerRegistration;
 
-import java.util.Map;
-
 
 public class NoteAdapter extends FirestoreRecyclerAdapter<Note, NoteAdapter.NoteHolder> {
 
     private OnItemClickListener listener;
+    private boolean startAppAndCloseMainActivity;
+    Activity activity;
 
-    NoteAdapter(@NonNull FirestoreRecyclerOptions<Note> options) {
+    NoteAdapter(@NonNull FirestoreRecyclerOptions<Note> options, Activity activity, boolean startAppAndCloseMainActivity) {
         super(options);
+        this.activity = activity;
+        this.startAppAndCloseMainActivity = startAppAndCloseMainActivity;
     }
 
     @Override
@@ -56,8 +59,10 @@ public class NoteAdapter extends FirestoreRecyclerAdapter<Note, NoteAdapter.Note
                 offlineNoteData.setListenerRegistration(listenerRegistration);
             }
             if(note.isLoadToCache())
-                MyApp.loadToCacheList.add(documentReference);
+                MyApp.loadToCacheMap.put(documentReference.getId(),documentReference);
         }
+        if(startAppAndCloseMainActivity)
+            activity.finish();
         return new NoteHolder(v);
     }
 

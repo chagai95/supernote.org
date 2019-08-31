@@ -15,13 +15,13 @@ import java.util.List;
 public class TitleHistoryAdapter extends RecyclerView.Adapter<TitleHistoryAdapter.TitleHistoryHolder> {
 
 
-    //this context we will use to inflate the layout
+    //this activity we will use to inflate the layout
     private Context cOtherActivity;
 
     //we are storing all the Strings in a list
     private List<String> noteHistoryList;
 
-    //getting the context and String list with constructor
+    //getting the activity and String list with constructor
     TitleHistoryAdapter(Context cOtherActivity, List<String> noteHistoryList) {
         this.cOtherActivity = cOtherActivity;
         this.noteHistoryList = noteHistoryList;

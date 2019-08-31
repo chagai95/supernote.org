@@ -30,6 +30,9 @@ public class NetworkChangeReceiver extends BroadcastReceiver {
                 if (activity instanceof EditNoteActivity) {
                     MyApp.updateFromServer = true;
                 }
+                if(MyApp.isBackUpFailed()){
+                    MyApp.loadToCache();
+                }
             }
 
                 if (activity instanceof EditNoteActivity) {
