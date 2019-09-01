@@ -38,8 +38,10 @@ public class NetworkChangeReceiver extends BroadcastReceiver {
                 if (activity instanceof EditNoteActivity) {
                     if(MyApp.isActivityEditNoteVisible())activity.recreate();
                 }
-                if(activity instanceof MainActivity)
+                if(activity instanceof MainActivity){
+                    activity.getIntent().putExtra("networkChangeReciever",true);
                     if(MyApp.isActivityVisible()) activity.recreate();
+                }
 
         }
     }

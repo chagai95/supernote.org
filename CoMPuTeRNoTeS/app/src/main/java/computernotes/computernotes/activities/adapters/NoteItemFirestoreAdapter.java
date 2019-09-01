@@ -2,10 +2,13 @@ package computernotes.computernotes.activities.adapters;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
+
+import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.firebase.ui.firestore.FirestoreRecyclerAdapter;
 import com.firebase.ui.firestore.FirestoreRecyclerOptions;
@@ -15,6 +18,7 @@ import computernotes.computernotes.activities.MainActivity;
 import computernotes.computernotes.utils.FireBaseNote;
 
 public class NoteItemFirestoreAdapter extends FirestoreRecyclerAdapter<FireBaseNote, NoteItemFirestoreAdapter.NoteViewFirestoreHolder> {
+    private final Context context;
 
 
     /**
@@ -30,25 +34,19 @@ public class NoteItemFirestoreAdapter extends FirestoreRecyclerAdapter<FireBaseN
      *
      * @param options
      */
-    public NoteItemFirestoreAdapter(@NonNull FirestoreRecyclerOptions<FireBaseNote> options) {
+    public NoteItemFirestoreAdapter(@NonNull FirestoreRecyclerOptions<FireBaseNote> options, Context context) {
         super(options);
+        this.context = context;
     }
-
-
 
 
     @Override
     protected void onBindViewHolder(@NonNull NoteViewFirestoreHolder holder, int notePosition, @NonNull FireBaseNote fireBaseNote) {
         //getting the note of the specified position
-
+        Toast.makeText(context, "test " + notePosition, Toast.LENGTH_SHORT).show();
         //binding the data with the ViewHolder views
         holder.textViewTitle.setText(fireBaseNote.getTitle());
-        if ((fireBaseNote.getContents().get(0)).equals(""))
-            holder.textViewShortDesc.setText(fireBaseNote.getTitle());
-        else {
-                holder.textViewShortDesc.setText(( fireBaseNote.getContents().get(0)));
-
-        }
+        holder.textViewShortDesc.setText((fireBaseNote.getContents().get(0)));
     }
 
 
@@ -60,7 +58,7 @@ public class NoteItemFirestoreAdapter extends FirestoreRecyclerAdapter<FireBaseN
         return new NoteViewFirestoreHolder(v);
     }
 
-        class NoteViewFirestoreHolder extends RecyclerView.ViewHolder {
+    class NoteViewFirestoreHolder extends RecyclerView.ViewHolder {
 
         TextView textViewTitle;
         //decide what comes as a short description preview.

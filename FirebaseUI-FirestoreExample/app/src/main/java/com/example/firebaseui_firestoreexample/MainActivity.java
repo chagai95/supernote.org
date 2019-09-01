@@ -8,7 +8,6 @@ import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.Looper;
 import android.os.Message;
 import android.os.Process;
 import android.util.Log;
@@ -46,6 +45,10 @@ import java.util.TimerTask;
 import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends AppCompatActivity {
+
+//    Intent mServiceIntent;
+//    private SensorService mSensorService;
+
     private FirebaseFirestore db = FirebaseFirestore.getInstance();
     private CollectionReference notebookRef;
 
@@ -62,12 +65,21 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         mDecimalFormater = new DecimalFormat("##.##");
 
+//        code from the article
+//        mSensorService = new SensorService(this);
+
+//        changed the code a bit should work fine
+//        mServiceIntent = new Intent(this, SensorService.class);
+//        if (!isMyServiceRunning()) {
+//            startService(mServiceIntent);
+//        }
+
         MyApp.getFirstInstance().registerActivityLifecycleCallbacks(new MyActivityLifecycleCallbacks());
 
-        long long1mb = 1048576L;
+        long long_one_mb = 1048576L;
         FirebaseFirestoreSettings settings = new FirebaseFirestoreSettings.Builder()
                 .setPersistenceEnabled(true)
-                .setCacheSizeBytes(long1mb)
+                .setCacheSizeBytes(long_one_mb)
                 .build();
         db.setFirestoreSettings(settings);
         notebookRef = db.collection("Notebook");
@@ -89,10 +101,37 @@ public class MainActivity extends AppCompatActivity {
         Timer timer = new Timer();
         TimerTask timerTask = new TimerTask() {
             public void run() {
-                MyApp.loadToCache();
+                if(isNetworkAvailable())
+                    MyApp.loadToCache();
+                else
+                    MyApp.setBackUpFailed(true);
             }
         };
         timer.schedule(timerTask, today.getTime(), TimeUnit.MILLISECONDS.convert(1, TimeUnit.DAYS)); // period: 1 day
+    }
+
+//    private boolean isMyServiceRunning() {
+//        ActivityManager manager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+//        for (ActivityManager.RunningServiceInfo service : Objects.requireNonNull(manager).getRunningServices(Integer.MAX_VALUE)) {
+//            if (SensorService.class.getName().equals(service.service.getClassName())) {
+//                Log.i ("isMyServiceRunning?", true+"");
+//                return true;
+//            }
+//        }
+//        Log.i ("isMyServiceRunning?", false+"");
+//        return false;
+//    }
+
+    @Override
+    protected void onDestroy() {
+//        if(getIntent().getBooleanExtra("networkChangeReciever",false))
+//            stopService(mServiceIntent);
+//        getIntent().putExtra("networkChangeReciever",false);
+//        Log.i("MAINACT", "onDestroy!");
+//        FirebaseFirestore.getInstance().collection("utils").document("mainActivityDestroyed").update(
+//                "mainActivityDestroyed", FieldValue.arrayUnion(((Activity) this).toString().substring(52)));
+        super.onDestroy();
+
     }
 
     private void reception() {
@@ -109,6 +148,7 @@ public class MainActivity extends AppCompatActivity {
                 .build();
 
         adapter = new NoteAdapter(options,this,getIntent().getBooleanExtra("startAppAndCloseMainActivity",false));
+        getIntent().putExtra("startAppAndCloseMainActivity",false);
         RecyclerView recyclerView = findViewById(R.id.recycler_view);
         recyclerView.setHasFixedSize(true);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
@@ -147,9 +187,14 @@ public class MainActivity extends AppCompatActivity {
     protected void onStop() {
         super.onStop();
         MyApp.activityStopped();
+        adapter.stopListening();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
         lastOnlineState = isNetworkAvailable();
         onCreateCalled = false;
-        adapter.stopListening();
     }
 
     @Override

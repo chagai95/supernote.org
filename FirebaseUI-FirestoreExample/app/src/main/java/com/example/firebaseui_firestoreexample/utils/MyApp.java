@@ -6,12 +6,7 @@ import android.content.Context;
 import android.content.IntentFilter;
 import android.net.ConnectivityManager;
 
-import androidx.annotation.NonNull;
-
-import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.Task;
 import com.google.firebase.firestore.DocumentReference;
-import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.Source;
 
 import java.util.HashMap;
@@ -99,17 +94,10 @@ public class MyApp extends Application {
         MyApp.backUpFailed = backUpFailed;
     }
 
-    @SuppressWarnings("unused")
     public static void loadToCache(){
         for (DocumentReference documentReference:
                 loadToCacheMap.values()) {
-            documentReference.get(Source.SERVER).addOnCompleteListener(task -> {
-                if(task.isSuccessful()){
-                    backUpFailed = false;
-                } else {
-                    backUpFailed = true;
-                }
-            });
+            documentReference.get(Source.SERVER).addOnCompleteListener(task -> backUpFailed = !task.isSuccessful());
         }
     }
 

@@ -205,8 +205,6 @@ public class EditNoteActivity extends AppCompatActivity {
     protected void onStop() {
         super.onStop();
         MyApp.activityEditNoteStopped();
-        lastOnlineState = isNetworkAvailable();
-        onCreateCalled = false;
         /*System.out.println("size of list" + MyApp.historyTitle.size());
         for (String s :
                 MyApp.historyTitle) {
@@ -227,6 +225,13 @@ public class EditNoteActivity extends AppCompatActivity {
                 }
             }
         });
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        lastOnlineState = isNetworkAvailable();
+        onCreateCalled = false;
     }
 
     @Override

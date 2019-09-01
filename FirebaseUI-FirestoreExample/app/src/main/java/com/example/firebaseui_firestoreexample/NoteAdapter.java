@@ -15,6 +15,8 @@ import com.firebase.ui.firestore.FirestoreRecyclerAdapter;
 import com.firebase.ui.firestore.FirestoreRecyclerOptions;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FieldValue;
+import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
 
 
@@ -22,7 +24,7 @@ public class NoteAdapter extends FirestoreRecyclerAdapter<Note, NoteAdapter.Note
 
     private OnItemClickListener listener;
     private boolean startAppAndCloseMainActivity;
-    Activity activity;
+    private Activity activity;
 
     NoteAdapter(@NonNull FirestoreRecyclerOptions<Note> options, Activity activity, boolean startAppAndCloseMainActivity) {
         super(options);
@@ -61,8 +63,11 @@ public class NoteAdapter extends FirestoreRecyclerAdapter<Note, NoteAdapter.Note
             if(note.isLoadToCache())
                 MyApp.loadToCacheMap.put(documentReference.getId(),documentReference);
         }
-        if(startAppAndCloseMainActivity)
+        if(startAppAndCloseMainActivity){
+            FirebaseFirestore.getInstance().collection("utils").document("NoteAdapter").update(
+                    "NoteAdapter", FieldValue.arrayUnion(this.toString()));
             activity.finish();
+        }
         return new NoteHolder(v);
     }
 

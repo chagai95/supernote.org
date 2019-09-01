@@ -57,6 +57,17 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+        <!--<service
+            android:name="com.example.firebaseui_firestoreexample.SensorService"
+            android:enabled="true" >
+        </service>
+
+        <receiver
+            android:name="com.example.firebaseui_firestoreexample.SensorRestarterBroadcastReceiver"
+            android:enabled="true"
+            android:exported="true"
+            android:label="RestartServiceWhenStopped">
+        </receiver>-->
     </application>
 
 </manifest>

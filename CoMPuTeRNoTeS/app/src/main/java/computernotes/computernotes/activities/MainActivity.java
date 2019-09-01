@@ -191,7 +191,8 @@ public class MainActivity extends AppCompatActivity {
         firebaseUser = mAuth.getCurrentUser();
         if (firebaseUser == null) {
             login();
-        } else loadNotes(firebaseUser.getUid());
+        }
+//        else loadNotes(firebaseUser.getUid());
         //Make Home button visible
         if (getSupportActionBar() != null) {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
@@ -205,7 +206,7 @@ public class MainActivity extends AppCompatActivity {
             createDrawerMenu();
         }
 
-//        setUpRecyclerView();
+        setUpRecyclerView();
 
         /*//getting the recyclerview from xml
         recyclerViewNoteList = findViewById(R.id.recyclerViewMain);
@@ -294,7 +295,7 @@ public class MainActivity extends AppCompatActivity {
                 .setQuery(query, FireBaseNote.class)
                 .build();
 
-        adapterFirestoreRecyclerViewNoteList = new NoteItemFirestoreAdapter(options);
+        adapterFirestoreRecyclerViewNoteList = new NoteItemFirestoreAdapter(options,c);
 
         RecyclerView recyclerView = findViewById(R.id.recyclerViewMain);
         recyclerView.setHasFixedSize(true);
@@ -338,7 +339,7 @@ public class MainActivity extends AppCompatActivity {
                                         ((CloudUser) ServerCommunicator.user).setUsername((String) task.getResult().get("username"));
                                 }
                             });
-                            loadNotes(ServerCommunicator.user.getUid());
+//                            loadNotes(ServerCommunicator.user.getUid());
 
 //                            }
 
@@ -577,8 +578,6 @@ public class MainActivity extends AppCompatActivity {
             db.disableNetwork();//disable offline button and enable online button
         else
             db.enableNetwork();//disable online button and enable offline button
-
-
     }
 
     private void signout() {
