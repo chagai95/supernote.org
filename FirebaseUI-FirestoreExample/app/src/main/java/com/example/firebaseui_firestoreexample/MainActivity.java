@@ -27,7 +27,6 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.firebaseui_firestoreexample.utils.MyApp;
 import com.firebase.ui.firestore.FirestoreRecyclerOptions;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
-import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreSettings;
 import com.google.firebase.firestore.Query;
@@ -49,10 +48,8 @@ public class MainActivity extends AppCompatActivity {
 //    Intent mServiceIntent;
 //    private SensorService mSensorService;
 
-    private FirebaseFirestore db = FirebaseFirestore.getInstance();
-    private CollectionReference notebookRef;
 
-
+    FirebaseFirestore db;
     private NoteAdapter adapter;
 
     boolean lastOnlineState;
@@ -74,20 +71,18 @@ public class MainActivity extends AppCompatActivity {
 //            startService(mServiceIntent);
 //        }
 
+        db = FirebaseFirestore.getInstance();
+
+
         MyApp.getFirstInstance().registerActivityLifecycleCallbacks(new MyActivityLifecycleCallbacks());
 
-        long long_one_mb = 1048576L;
-        FirebaseFirestoreSettings settings = new FirebaseFirestoreSettings.Builder()
-                .setPersistenceEnabled(true)
-                .setCacheSizeBytes(long_one_mb)
-                .build();
-        db.setFirestoreSettings(settings);
-        notebookRef = db.collection("Notebook");
 
         FloatingActionButton buttonAddNote = findViewById(R.id.button_add_note);
         buttonAddNote.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, NewNoteActivity.class)));
 
         setUpRecyclerView();
+
+
 
         reception();
 
@@ -101,14 +96,16 @@ public class MainActivity extends AppCompatActivity {
         Timer timer = new Timer();
         TimerTask timerTask = new TimerTask() {
             public void run() {
-                if(isNetworkAvailable())
+                if (isNetworkAvailable())
                     MyApp.loadToCache();
                 else
                     MyApp.setBackUpFailed(true);
             }
         };
         timer.schedule(timerTask, today.getTime(), TimeUnit.MILLISECONDS.convert(1, TimeUnit.DAYS)); // period: 1 day
+        new NotificationHelper(this).initNotificationChannels();
     }
+
 
 //    private boolean isMyServiceRunning() {
 //        ActivityManager manager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
@@ -135,20 +132,22 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void reception() {
-        internetThread = new InternetThread(this);
-        internetThread.setPriority(Process.THREAD_PRIORITY_BACKGROUND);
-        internetThread.start();
+        if (isNetworkAvailable()) {
+            internetThread = new InternetThread(this);
+            internetThread.setPriority(Process.THREAD_PRIORITY_BACKGROUND);
+            internetThread.start();
+        }
     }
 
     private void setUpRecyclerView() {
-        Query query = notebookRef.orderBy("priority", Query.Direction.DESCENDING);
+        Query query = db.collection("Notebook").orderBy("priority", Query.Direction.DESCENDING);
 
         FirestoreRecyclerOptions<Note> options = new FirestoreRecyclerOptions.Builder<Note>()
                 .setQuery(query, Note.class)
                 .build();
 
-        adapter = new NoteAdapter(options,this,getIntent().getBooleanExtra("startAppAndCloseMainActivity",false));
-        getIntent().putExtra("startAppAndCloseMainActivity",false);
+        adapter = new NoteAdapter(options, this, getIntent().getBooleanExtra("startAppAndCloseMainActivity", false));
+        getIntent().putExtra("startAppAndCloseMainActivity", false);
         RecyclerView recyclerView = findViewById(R.id.recycler_view);
         recyclerView.setHasFixedSize(true);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));

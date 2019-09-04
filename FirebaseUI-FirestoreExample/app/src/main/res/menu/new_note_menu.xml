@@ -12,4 +12,23 @@
         android:title="@string/activate_use_offline"/>
     <item android:id="@+id/save_for_load_to_cache"
         android:title="@string/activate_load_to_cache"/>
+
+    <item
+        android:id="@+id/action_add_reminder"
+        android:orderInCategory="100"
+        android:title="add reminder"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/location_reminder"
+        android:orderInCategory="100"
+        android:title="location reminder"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_add_whatsappreminder"
+        android:orderInCategory="100"
+        android:title="action add whatsapp reminder"
+        app:showAsAction="never" />
+
 </menu>

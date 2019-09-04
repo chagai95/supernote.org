@@ -1,6 +1,5 @@
 package com.example.firebaseui_firestoreexample;
 
-import android.app.Activity;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
