@@ -23,7 +23,7 @@ public class MyBroadcastReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
         if(Objects.requireNonNull(intent.getAction()).equals("TimeReminder")){
-            OfflineNoteData offlineNoteData = MyApp.allNotesOfflineNoteData.get(intent.getStringExtra("documentID"));
+            OfflineNoteData offlineNoteData = MyApp.allNotesOfflineNoteData.get(intent.getStringExtra("noteID"));
             if (offlineNoteData != null)
                 documentReference = offlineNoteData.getDocumentReference();
             Log.i("MyBroadcastReceiver", "notification triggered");
@@ -48,7 +48,7 @@ public class MyBroadcastReceiver extends BroadcastReceiver {
 
 
                 Intent intent = new Intent(mContext, EditNoteActivity.class);
-                intent.putExtra("documentID", documentReference.getId());
+                intent.putExtra("noteID", documentReference.getId());
                 // Create the TaskStackBuilder and add the intent, which inflates the back stack
                 TaskStackBuilder stackBuilder = TaskStackBuilder.create(mContext);
                 stackBuilder.addNextIntentWithParentStack(intent);

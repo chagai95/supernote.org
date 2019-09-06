@@ -6,6 +6,7 @@ import android.content.res.Resources;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.Bundle;
+import android.telephony.TelephonyManager;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
@@ -23,7 +24,9 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.DialogFragment;
 
 import com.example.firebaseui_firestoreexample.utils.MyApp;
+import com.example.firebaseui_firestoreexample.utils.NetworkUtil;
 import com.example.firebaseui_firestoreexample.utils.OfflineNoteData;
+import com.example.firebaseui_firestoreexample.utils.TrafficLight;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
@@ -39,7 +42,7 @@ public class EditNoteActivity extends AppCompatActivity {
     private EditText editTextDescription;
     private NumberPicker numberPickerPriority;
 
-    String documentID;
+    String noteID;
     private DocumentReference documentRef;
     public static ListenerRegistration registration;
 
@@ -53,6 +56,7 @@ public class EditNoteActivity extends AppCompatActivity {
     boolean lastOnlineState;
     boolean onCreateCalled;
     private boolean keepOffline;
+    private TrafficLight lastTrafficLightState;
 //    private int cursor;
 //    private boolean changeCursorPositionBack;
 
@@ -69,8 +73,8 @@ public class EditNoteActivity extends AppCompatActivity {
         editTextTitle = findViewById(R.id.edit_text_title);
         editTextDescription = findViewById(R.id.edit_text_description);
         numberPickerPriority = findViewById(R.id.number_picker_priority);
-        documentID = Objects.requireNonNull(getIntent().getStringExtra("documentID"));
-        offlineNoteData = Objects.requireNonNull(MyApp.allNotesOfflineNoteData.get(documentID));
+        noteID = Objects.requireNonNull(getIntent().getStringExtra("noteID"));
+        offlineNoteData = Objects.requireNonNull(MyApp.allNotesOfflineNoteData.get(noteID));
         documentRef = offlineNoteData.getDocumentReference();
         onCreateCalled = true;
 
@@ -198,6 +202,9 @@ public class EditNoteActivity extends AppCompatActivity {
             case R.id.save_for_load_to_cache:
                 saveForLoadToCache();
                 return true;
+            case R.id.refreshTrafficLight:
+                recreate();
+                return true;
             default:
                 return super.onOptionsItemSelected(item);
         }
@@ -297,7 +304,6 @@ public class EditNoteActivity extends AppCompatActivity {
 
     private void saveForLoadToCache() {
         documentRef.update("loadToCache", true);
-        MyApp.loadToCacheMap.put(documentID, documentRef);
     }
 
     private void saveForUseOffline() {
@@ -309,10 +315,15 @@ public class EditNoteActivity extends AppCompatActivity {
     }
 
     private void titleHistory() {
-        String id = getIntent().getStringExtra("documentID");
+        String id = getIntent().getStringExtra("noteID");
         Intent intent = new Intent(EditNoteActivity.this, TitleHistoryActivity.class);
-        intent.putExtra("documentID", id);
+        intent.putExtra("noteID", id);
         startActivity(intent);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
     }
 
     @Override
@@ -352,7 +363,7 @@ public class EditNoteActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         MyApp.activityEditNoteResumed();
-        if (!onCreateCalled && lastOnlineState != isNetworkAvailable())
+        if (!onCreateCalled && MyApp.lastTrafficLightState != lastTrafficLightState)
             recreate();
         if (MyApp.updateFromServer) {
             MyApp.updateFromServer = false;
@@ -386,7 +397,7 @@ public class EditNoteActivity extends AppCompatActivity {
             editTextTitle.setText(MyApp.titleOldVersion);
             MyApp.titleOldVersion = null;
         }
-        if (isNetworkAvailable()) {
+        if (isNetworkAvailable() && !MyApp.appInternInternetOffToggle) {
             if (offlineNoteData.getListenerRegistration() != null)
                 offlineNoteData.getListenerRegistration().remove();
             createFirestoreListener();
@@ -467,10 +478,27 @@ public class EditNoteActivity extends AppCompatActivity {
         Resources.Theme theme = super.getTheme();
 //        skip this for now because it does not work. - tried to check if there can be a connection with google established.
 //        new Online().run();
-        if (isNetworkAvailable())// && networkWorking)
-            theme.applyStyle(R.style.Online, true);
-        else
+        if (MyApp.appInternInternetOffToggle){
+            theme.applyStyle(R.style.InternOffline, true);
+            MyApp.lastTrafficLightState = TrafficLight.INTERN_OFFLINE;
+            lastTrafficLightState = TrafficLight.INTERN_OFFLINE;
+        }
+        else if (isNetworkAvailable()) {
+            if (NetworkUtil.networkType == TelephonyManager.NETWORK_TYPE_EDGE){
+                theme.applyStyle(R.style.MaybeConnected, true);
+                MyApp.lastTrafficLightState = TrafficLight.MAYBE_CONNECTED;
+                lastTrafficLightState = TrafficLight.MAYBE_CONNECTED;
+            }
+            else{
+                theme.applyStyle(R.style.Online, true);
+                MyApp.lastTrafficLightState = TrafficLight.ONLINE;
+                lastTrafficLightState = TrafficLight.ONLINE;
+            }
+        } else{
             theme.applyStyle(R.style.Offline, true);
+            MyApp.lastTrafficLightState = TrafficLight.OFFLINE;
+            lastTrafficLightState = TrafficLight.OFFLINE;
+        }
         return theme;
     }
 

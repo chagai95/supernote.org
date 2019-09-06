@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.os.IBinder;
 import android.util.Log;
 
+import com.example.firebaseui_firestoreexample.utils.MyApp;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 
@@ -45,6 +46,7 @@ public class SensorService extends Service {
 
     @Override
     public void onTaskRemoved(Intent rootIntent) {
+        MyApp.forceStop.update("forceStop",true);
         super.onTaskRemoved(rootIntent);
         Log.i("EXIT", "ondestroy!");
         FirebaseFirestore.getInstance().collection("utils").document("sensorServiceTaskRemoved").update(

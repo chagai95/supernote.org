@@ -3,9 +3,11 @@
     xmlns:tools="http://schemas.android.com/tools"
     package="com.example.firebaseui_firestoreexample">
 
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
 
     <application
         android:name=".utils.MyApp"
@@ -16,6 +18,7 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme"
         tools:ignore="AllowBackup,GoogleAppIndexingWarning">
+        <activity android:name=".SettingsActivity" />
         <activity android:name=".TitleHistoryActivity" />
         <activity
             android:name=".EditNoteActivity"
@@ -44,15 +47,8 @@
             </intent-filter>
         </receiver>
 
-        <service android:name=".MyService" android:label="My Service"
-            tools:ignore="ExportedService">
-            <intent-filter>
-                <action android:name="com.example.firebaseui_firestoreexample.MyService" />
-            </intent-filter>
-        </service>
-
         <receiver
-            android:name="StartMyServiceAtBootReceiver"
+            android:name=".StartMyServiceAtBootReceiver"
             android:label="StartMyServiceAtBootReceiver">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
@@ -67,17 +63,16 @@
                 <action android:name="android.intent.action.INPUT_METHOD_CHANGED" />
             </intent-filter>
         </receiver>
-        <!--<service
-            android:name="com.example.firebaseui_firestoreexample.SensorService"
-            android:enabled="true" >
+        <service
+            android:name=".MyService"
+            android:label="My Service"
+            tools:ignore="ExportedService">
+            <intent-filter>
+                <action android:name="com.example.firebaseui_firestoreexample.MyService" />
+            </intent-filter>
         </service>
-
-        <receiver
-            android:name="com.example.firebaseui_firestoreexample.SensorRestarterBroadcastReceiver"
-            android:enabled="true"
-            android:exported="true"
-            android:label="RestartServiceWhenStopped">
-        </receiver>-->
     </application>
+
+
 
 </manifest>

@@ -10,6 +10,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.os.Process;
+import android.telephony.TelephonyManager;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -23,12 +24,14 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.example.firebaseui_firestoreexample.utils.MyApp;
+import com.example.firebaseui_firestoreexample.utils.NetworkUtil;
+import com.example.firebaseui_firestoreexample.utils.TrafficLight;
 import com.firebase.ui.firestore.FirestoreRecyclerOptions;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.FirebaseFirestoreSettings;
 import com.google.firebase.firestore.Query;
 
 import java.io.IOException;
@@ -52,19 +55,23 @@ public class MainActivity extends AppCompatActivity {
     FirebaseFirestore db;
     private NoteAdapter adapter;
 
-    boolean lastOnlineState;
     boolean onCreateCalled;
     InternetThread internetThread;
+    private TrafficLight lastTrafficLightState;
+    private Menu menu;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         mDecimalFormater = new DecimalFormat("##.##");
-
-//        code from the article
+        final SwipeRefreshLayout pullToRefresh = findViewById(R.id.pullToRefresh);
+        pullToRefresh.setOnRefreshListener(() -> {
+            refreshTrafficLight(); // your code
+            pullToRefresh.setRefreshing(false);
+        });
+//        code from the article:
 //        mSensorService = new SensorService(this);
-
 //        changed the code a bit should work fine
 //        mServiceIntent = new Intent(this, SensorService.class);
 //        if (!isMyServiceRunning()) {
@@ -73,20 +80,27 @@ public class MainActivity extends AppCompatActivity {
 
         db = FirebaseFirestore.getInstance();
 
-
         MyApp.getFirstInstance().registerActivityLifecycleCallbacks(new MyActivityLifecycleCallbacks());
-
 
         FloatingActionButton buttonAddNote = findViewById(R.id.button_add_note);
         buttonAddNote.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, NewNoteActivity.class)));
 
         setUpRecyclerView();
 
-
-
         reception();
 
         onCreateCalled = true;
+
+        createCacheLoaderTimerTask();
+
+        new NotificationHelper(this).initNotificationChannels();
+    }
+
+    private void refreshTrafficLight() {
+        recreate();
+    }
+
+    private void createCacheLoaderTimerTask() {
         Calendar today = Calendar.getInstance();
         today.set(Calendar.HOUR_OF_DAY, 11);
         today.set(Calendar.MINUTE, 12);
@@ -103,7 +117,6 @@ public class MainActivity extends AppCompatActivity {
             }
         };
         timer.schedule(timerTask, today.getTime(), TimeUnit.MILLISECONDS.convert(1, TimeUnit.DAYS)); // period: 1 day
-        new NotificationHelper(this).initNotificationChannels();
     }
 
 
@@ -128,7 +141,6 @@ public class MainActivity extends AppCompatActivity {
 //        FirebaseFirestore.getInstance().collection("utils").document("mainActivityDestroyed").update(
 //                "mainActivityDestroyed", FieldValue.arrayUnion(((Activity) this).toString().substring(52)));
         super.onDestroy();
-
     }
 
     private void reception() {
@@ -170,7 +182,7 @@ public class MainActivity extends AppCompatActivity {
         adapter.setOnItemClickListener((documentSnapshot, position) -> {
             String id = documentSnapshot.getId();
             Intent intent = new Intent(MainActivity.this, EditNoteActivity.class);
-            intent.putExtra("documentID", id);
+            intent.putExtra("noteID", id);
             MainActivity.this.startActivity(intent);
 
         });
@@ -192,7 +204,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
-        lastOnlineState = isNetworkAvailable();
         onCreateCalled = false;
     }
 
@@ -200,7 +211,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         MyApp.activityResumed();
-        if (!onCreateCalled && lastOnlineState != isNetworkAvailable())
+        if (!onCreateCalled && MyApp.lastTrafficLightState != lastTrafficLightState)
             recreate();
     }
 
@@ -209,10 +220,26 @@ public class MainActivity extends AppCompatActivity {
         Resources.Theme theme = super.getTheme();
 //        skip this for now because it does not work. - tried to check if there can be a connection with google established.
 //        new Online().run();
-        if (isNetworkAvailable())// && networkWorking)
-            theme.applyStyle(R.style.Online, true);
-        else
+        if (MyApp.appInternInternetOffToggle) {
+            theme.applyStyle(R.style.InternOffline, true);
+            MyApp.lastTrafficLightState = TrafficLight.INTERN_OFFLINE;
+            lastTrafficLightState = TrafficLight.INTERN_OFFLINE;
+        } else if (isNetworkAvailable()) {
+            if (NetworkUtil.networkType == TelephonyManager.NETWORK_TYPE_EDGE) {
+                theme.applyStyle(R.style.MaybeConnected, true);
+                MyApp.lastTrafficLightState = TrafficLight.MAYBE_CONNECTED;
+                lastTrafficLightState = TrafficLight.MAYBE_CONNECTED;
+            } else {
+                theme.applyStyle(R.style.Online, true);
+                MyApp.lastTrafficLightState = TrafficLight.ONLINE;
+                lastTrafficLightState = TrafficLight.ONLINE;
+            }
+        } else {
             theme.applyStyle(R.style.Offline, true);
+            MyApp.lastTrafficLightState = TrafficLight.OFFLINE;
+            lastTrafficLightState = TrafficLight.OFFLINE;
+        }
+
         return theme;
     }
 
@@ -232,17 +259,31 @@ public class MainActivity extends AppCompatActivity {
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater menuInflater = getMenuInflater();
         menuInflater.inflate(R.menu.main_activity_menu, menu);
+        this.menu = menu;
+        MenuItem appInternInternetOffToggleMenuItem = menu.findItem(R.id.app_intern_internet_toggle);
+        if (MyApp.appInternInternetOffToggle)
+            appInternInternetOffToggleMenuItem.setTitle("activate internet in App");
+        else
+            appInternInternetOffToggleMenuItem.setTitle("deactivate internet in App");
         return super.onCreateOptionsMenu(menu);
     }
 
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
-        //noinspection SwitchStatementWithTooFewBranches
         switch (item.getItemId()) {
             case R.id.speed_test:
                 Toast.makeText(this, "last speed recorded: " + MyApp.totalTime / 1000, Toast.LENGTH_SHORT).show();
                 reception();
                 return true;
+            case R.id.app_intern_internet_toggle:
+                if (MyApp.appInternInternetOffToggle)
+                    db.enableNetwork();
+                else db.disableNetwork();
+                MyApp.appInternInternetOffToggle = !MyApp.appInternInternetOffToggle;
+                recreate();
+                return true;
+            case R.id.settings:
+                startActivity(new Intent(MainActivity.this, SettingsActivity.class));
             default:
                 return super.onOptionsItemSelected(item);
         }

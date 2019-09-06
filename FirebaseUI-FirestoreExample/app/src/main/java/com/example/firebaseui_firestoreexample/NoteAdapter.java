@@ -60,8 +60,6 @@ public class NoteAdapter extends FirestoreRecyclerAdapter<Note, NoteAdapter.Note
                 });
                 offlineNoteData.setListenerRegistration(listenerRegistration);
             }
-            if(note.isLoadToCache())
-                MyApp.loadToCacheMap.put(documentReference.getId(),documentReference);
         }
         if(startAppAndCloseMainActivity){
             FirebaseFirestore.getInstance().collection("utils").document("NoteAdapter").update(

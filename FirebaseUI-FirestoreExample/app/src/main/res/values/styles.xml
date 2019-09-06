@@ -15,11 +15,24 @@
         <item name="colorAccent">#36832B</item>
     </style>
 
+    <style name="MaybeConnected" parent="Theme.AppCompat.Light.DarkActionBar">
+        <!-- Customize your theme here. -->
+        <item name="colorPrimary">#E77016</item>
+        <item name="colorPrimaryDark">#E77016</item>
+        <item name="colorAccent">#E77016</item>
+    </style>
+
     <style name="Offline" parent="Theme.AppCompat.Light.DarkActionBar">
         <!-- Customize your theme here. -->
         <item name="colorPrimary">#EB0000</item>
         <item name="colorPrimaryDark">#EB0000</item>
         <item name="colorAccent">#EB0000</item>
+    </style>
+    <style name="InternOffline" parent="Theme.AppCompat.Light.DarkActionBar">
+        <!-- Customize your theme here. -->
+        <item name="colorPrimary">#500707</item>
+        <item name="colorPrimaryDark">#500707</item>
+        <item name="colorAccent">#500707</item>
     </style>
 
 </resources>

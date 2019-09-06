@@ -86,7 +86,7 @@ public class MyDatePickerFragment extends DialogFragment {
                     myIntent.putExtra("whatsappMessage", whatsappMessage);
 
 //                      is this for the reminder id?
-                    myIntent.putExtra("documentID", documentReference.getId());
+                    myIntent.putExtra("noteID", documentReference.getId());
 
 
                     myIntent.setAction("TimeReminder");
@@ -108,7 +108,7 @@ public class MyDatePickerFragment extends DialogFragment {
                         documentReference.collection("Reminders")
                                 .add(new TimeReminder("time", new Timestamp(Objects.requireNonNull(dateReminder))))
                                 .addOnCompleteListener(task -> {
-                                    if (task.isSuccessful()) myIntent.setAction(Objects.requireNonNull(task.getResult()).getId());
+                                    if (task.isSuccessful()) myIntent.putExtra("reminderID",Objects.requireNonNull(task.getResult()).getId());
                                 });
 
 

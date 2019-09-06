@@ -32,7 +32,7 @@ public class TitleHistoryActivity extends AppCompatActivity {
 
         documentRef = FirebaseFirestore.getInstance()
                 .collection("Notebook")
-                .document(Objects.requireNonNull(getIntent().getStringExtra("documentID")));  // added Objects.requireNonNull to avoid warning
+                .document(Objects.requireNonNull(getIntent().getStringExtra("noteID")));  // added Objects.requireNonNull to avoid warning
 
         documentRef.get().addOnSuccessListener(documentSnapshot -> {
             Note note = documentSnapshot.toObject(Note.class);
