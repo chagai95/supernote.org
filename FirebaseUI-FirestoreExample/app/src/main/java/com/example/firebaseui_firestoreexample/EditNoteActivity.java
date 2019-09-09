@@ -1,11 +1,19 @@
 package com.example.firebaseui_firestoreexample;
 
+import android.Manifest;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.content.res.Resources;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.telephony.TelephonyManager;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -17,10 +25,12 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.NumberPicker;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
 import androidx.fragment.app.DialogFragment;
 
 import com.example.firebaseui_firestoreexample.utils.MyApp;
@@ -30,7 +40,10 @@ import com.example.firebaseui_firestoreexample.utils.TrafficLight;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.GeoPoint;
 import com.google.firebase.firestore.ListenerRegistration;
+import com.google.firebase.firestore.Source;
 
 import java.util.Objects;
 
@@ -53,10 +66,10 @@ public class EditNoteActivity extends AppCompatActivity {
 
     Context c = this;
 
-    boolean lastOnlineState;
     boolean onCreateCalled;
     private boolean keepOffline;
     private TrafficLight lastTrafficLightState;
+    private FirebaseFirestore db;
 //    private int cursor;
 //    private boolean changeCursorPositionBack;
 
@@ -66,6 +79,7 @@ public class EditNoteActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_edit_note);
 
+        db = FirebaseFirestore.getInstance();
 
         Objects.requireNonNull(getSupportActionBar()).setHomeAsUpIndicator(R.drawable.ic_close); // added Objects.requireNonNull to avoid warning
         setTitle("Edit note");
@@ -107,18 +121,20 @@ public class EditNoteActivity extends AppCompatActivity {
                     MyApp.historyTitle.add(editable.toString());
                 if (!MyApp.historyTitle.getLast().equals(editable.toString()))
                     MyApp.historyTitle.add(editable.toString());*/
-                if (isNetworkAvailable() && !MyApp.updateFromServer) {
-                    documentRef.get().addOnCompleteListener(task -> {
-                        if (task.isSuccessful()) {
-                            DocumentSnapshot documentSnapshot = task.getResult();
+                if (!MyApp.updateFromServer)
+                    if (isNetworkAvailable()) {
+                        documentRef.get().addOnCompleteListener(task -> {
+                            if (task.isSuccessful()) {
+                                DocumentSnapshot documentSnapshot = task.getResult();
                             /*if (!MyApp.historyTitle.getLast().equals(Objects.requireNonNull(Objects.requireNonNull(documentSnapshot).getData()).get("title")))
                                 MyApp.historyTitle.add((String) Objects.requireNonNull(documentSnapshot.getData()).get("title"));*/
-                            if (!Objects.requireNonNull(documentSnapshot).getMetadata().isFromCache())
-                                if (!Objects.requireNonNull(documentSnapshot.toObject(Note.class)).getTitle().equals(editable.toString()))
-                                    documentRef.update("title", editable.toString());
-                        }
-                    });
-                }
+                                if (!Objects.requireNonNull(documentSnapshot).getMetadata().isFromCache())
+                                    if (!Objects.requireNonNull(documentSnapshot.toObject(Note.class)).getTitle().equals(editable.toString()))
+                                        documentRef.update("title", editable.toString());
+                            }
+                        });
+                    } /*else
+                        documentRef.update("title", editable.toString());*/
             }
         };
         editTextTitle.addTextChangedListener(textWatcherTitle);
@@ -156,7 +172,6 @@ public class EditNoteActivity extends AppCompatActivity {
 //        makeText(this, "uploaded successfully", LENGTH_SHORT).show();
     }
 
-
     private void chooseBetweenServerDataAndLocalData(String serverData) {
         AlertDialog.Builder alert = new AlertDialog.Builder(c);
         alert.setTitle("chooseBetweenServerDataAndLocalData");
@@ -165,16 +180,29 @@ public class EditNoteActivity extends AppCompatActivity {
         final TextView input = new TextView(c);
         alert.setView(input);
 
-        alert.setPositiveButton("Server data", (dialog, whichButton) -> editTextTitle.setText(serverData));
+        alert.setPositiveButton("Server data", (dialog, whichButton) -> {
+            editTextTitle.setText(serverData);
+            documentRef.update("history", FieldValue.arrayUnion(serverData)).addOnSuccessListener(aVoid -> successfulUpload())
+                    .addOnFailureListener(this::unsuccessfulUpload);
+            recreate();
+        });
 
-        alert.setNegativeButton("Local data", (dialog, whichButton) -> documentRef.update("title", editTextTitle.getText().toString()));
+        alert.setNegativeButton("Local data", (dialog, whichButton) -> {
+            documentRef.update("title", editTextTitle.getText().toString());
+            recreate();
+        });
         alert.show();
     }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater menuInflater = getMenuInflater();
-        menuInflater.inflate(R.menu.new_note_menu, menu);
+        menuInflater.inflate(R.menu.note_menu, menu);
+        MenuItem appInternInternetOffToggleMenuItem = menu.findItem(R.id.app_intern_internet_toggle_in_note_activity);
+        if (MyApp.appInternInternetOffToggle)
+            appInternInternetOffToggleMenuItem.setTitle("activate internet in App");
+        else
+            appInternInternetOffToggleMenuItem.setTitle("deactivate internet in App");
         return super.onCreateOptionsMenu(menu);
     }
 
@@ -187,11 +215,20 @@ public class EditNoteActivity extends AppCompatActivity {
             case R.id.title_history:
                 titleHistory();
                 return true;
+            case R.id.app_intern_internet_toggle_in_note_activity:
+                if (MyApp.appInternInternetOffToggle) {
+                    if (isNetworkAvailable()) MyApp.updateFromServer = true;
+                    db.enableNetwork();
+                } else
+                    db.disableNetwork();
+                MyApp.appInternInternetOffToggle = !MyApp.appInternInternetOffToggle;
+                recreate();
+                return true;
             case R.id.action_add_reminder:
                 showDatePicker("", "");
                 return true;
             case R.id.location_reminder:
-//                createLocationReminder();
+                createAlertForLocationReminder();
                 return true;
             case R.id.action_add_whatsappreminder:
                 addWhatsappReminder();
@@ -215,60 +252,59 @@ public class EditNoteActivity extends AppCompatActivity {
         newFragment.show(getSupportFragmentManager(), "date picker");
     }
 
-//    private void createLocationReminder() {
-//        LocationManager locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
-//
-//        LocationListener listener = new LocationListener() {
-//            @Override
-//            public void onLocationChanged(Location location) {
-//                for (Note noteMain :
-//                        ServerCommunicator.notes) {
-//                    for (Reminder reminder :
-//                            noteMain.getReminders()) {
-//                        if (reminder instanceof LocationReminder) {
-//                            float distanceInMeters = ((LocationReminder) reminder).getLocation().distanceTo(location);
-//                            if (((LocationReminder) reminder).getRadius() > (double) distanceInMeters) {
-//                                System.out.println("\n " + location.getLongitude() + " " + location.getLatitude());
-//                                Toast.makeText(NoteActivity.this, "\n " + location.getLongitude() + " " + location.getLatitude(), Toast.LENGTH_SHORT).show();
-//                                createNotificationForLocationReminder();
-//                            }
-//
-//                        }
-//                    }
-//                }
-//            }
-//
-//            @Override
-//            public void onStatusChanged(String s, int i, Bundle bundle) {
-//
-//            }
-//
-//            @Override
-//            public void onProviderEnabled(String s) {
-//
-//            }
-//
-//            @Override
-//            public void onProviderDisabled(String s) {
-//
-//                Intent i = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
-//                startActivity(i);
-//            }
-//        };
-//        // first check for permissions
-//        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-//            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-//                requestPermissions(new String[]{Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.INTERNET}
-//                        , 10);
-//            }
-//            return;
-//        }
-//
-//        if (locationManager != null)
-//            locationManager.requestLocationUpdates("gps", 500, 1, listener);
-//        createAlertForLocationReminder();
-//
-//    }
+    private void createAlertForLocationReminder() {
+        AlertDialog.Builder alert = new AlertDialog.Builder(this);
+        LinearLayout layout = new LinearLayout(c);
+        layout.setOrientation(LinearLayout.VERTICAL);
+
+        // Add a TextView here for the number label, as noted in the comments
+        final EditText radiusEditText = new EditText(c);
+        radiusEditText.setHint("write the radius here");
+        layout.addView(radiusEditText); // Notice this is an add method
+
+        // Add another TextView here for the message label
+        final EditText locationEditText = new EditText(c);
+        locationEditText.setHint("write coordinates here");
+        layout.addView(locationEditText); // Another add method
+
+        alert.setTitle("Location Reminder");
+        alert.setMessage("");
+        alert.setView(layout); // Again this is a set method, not add
+
+        //only works once for some reason
+        alert.setPositiveButton("Ok", (dialog, whichButton) -> {
+            String radiusString = radiusEditText.getText().toString();
+            String locationString = locationEditText.getText().toString();
+            Log.i("AlertDialog", "TextEntry 1 Entered " + radiusString);
+            Log.i("AlertDialog", "TextEntry 2 Entered " + locationString);
+
+            Location location = new Location("");//provider name is unnecessary
+
+            double radiusDouble = Double.parseDouble(radiusString);
+
+            String[] split = locationString.split(",");
+            double locationLatitude = Double.parseDouble(split[0]);
+            double locationLongitude = Double.parseDouble(split[1]);
+            location.setLatitude(locationLatitude);
+            location.setLongitude(locationLongitude);
+
+            documentRef.collection("Reminders")
+                    .add(new LocationReminder(new GeoPoint(location.getLatitude(), location.getLongitude())))
+                    .addOnCompleteListener(task -> {
+                        if (task.isSuccessful()) {
+                            MyApp.locationReminders.put(Objects.requireNonNull(task.getResult()).getId(), task.getResult());
+//                    MyApp.addReminderToLocationManager(task.getResult().get);
+                        }
+                    });
+
+        });
+
+        alert.setNegativeButton("Cancel", (dialog, whichButton) -> {
+            // Canceled.
+        });
+        alert.show();
+
+    }
 
     private void addWhatsappReminder() {
         AlertDialog.Builder alert = new AlertDialog.Builder(this);
@@ -318,6 +354,7 @@ public class EditNoteActivity extends AppCompatActivity {
         String id = getIntent().getStringExtra("noteID");
         Intent intent = new Intent(EditNoteActivity.this, TitleHistoryActivity.class);
         intent.putExtra("noteID", id);
+        intent.putExtra("title", editTextTitle.getText().toString());
         startActivity(intent);
     }
 
@@ -355,7 +392,6 @@ public class EditNoteActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
-        lastOnlineState = isNetworkAvailable();
         onCreateCalled = false;
     }
 
@@ -365,18 +401,24 @@ public class EditNoteActivity extends AppCompatActivity {
         MyApp.activityEditNoteResumed();
         if (!onCreateCalled && MyApp.lastTrafficLightState != lastTrafficLightState)
             recreate();
+
         if (MyApp.updateFromServer) {
-            MyApp.updateFromServer = false;
-            documentRef.get().addOnCompleteListener(task -> {
+            documentRef.get(Source.SERVER).addOnCompleteListener(task -> {
                 if (task.isSuccessful()) {
+                    MyApp.updateFromServer = false;
                     DocumentSnapshot documentSnapshot = task.getResult();
-                    if (Objects.requireNonNull(documentSnapshot).exists()) {
-                        if (!editTextTitle.getText().toString().equals(Objects.requireNonNull(documentSnapshot.getData()).get("title"))) {
+                    Note noteServer = Objects.requireNonNull(documentSnapshot).toObject(Note.class);
+                    if (Objects.requireNonNull(documentSnapshot).exists() && noteServer != null) {
+                        if (!editTextTitle.getText().toString().equals(noteServer.getTitle())
+                                && !editTextTitle.getText().toString().equals(noteServer.getHistory().get(noteServer.getHistory().size()-1))) {
                             chooseBetweenServerDataAndLocalData((String) Objects.requireNonNull(documentSnapshot.getData()).get("title"));
                         }
 //                        if (!MyApp.historyTitle.getLast().equals(Objects.requireNonNull(documentSnapshot.getData()).get("title")))
 //                            MyApp.historyTitle.add((String) Objects.requireNonNull(documentSnapshot.getData()).get("title"));
                     }
+                } else {
+                    makeText(c, "didn't get data from server trying again!", LENGTH_SHORT).show();
+                    recreate();
                 }
             });
             /*documentRef.get().addOnSuccessListener(documentSnapshot -> {
@@ -391,13 +433,15 @@ public class EditNoteActivity extends AppCompatActivity {
             });*/
         }
 
-        if (MyApp.titleOldVersion != null) {
-            /*if (!MyApp.historyTitle.isEmpty() && !MyApp.historyTitle.getLast().equals(editTextTitle.getText().toString()))
-                MyApp.historyTitle.add(editTextTitle.getText().toString());*/
-            editTextTitle.setText(MyApp.titleOldVersion);
-            MyApp.titleOldVersion = null;
-        }
+
         if (isNetworkAvailable() && !MyApp.appInternInternetOffToggle) {
+            //        adding an older version of the title from the historyTitle list
+            if (MyApp.titleOldVersion != null) {
+                            /*if (!MyApp.historyTitle.isEmpty() && !MyApp.historyTitle.getLast().equals(editTextTitle.getText().toString()))
+                MyApp.historyTitle.add(editTextTitle.getText().toString());*/
+                editTextTitle.setText(MyApp.titleOldVersion);
+                MyApp.titleOldVersion = null;
+            }
             if (offlineNoteData.getListenerRegistration() != null)
                 offlineNoteData.getListenerRegistration().remove();
             createFirestoreListener();
@@ -406,11 +450,22 @@ public class EditNoteActivity extends AppCompatActivity {
                 if (task.isSuccessful()) {
                     DocumentSnapshot documentSnapshot = task.getResult();
                     if (Objects.requireNonNull(documentSnapshot).exists()) {
-                        editTextTitle.setText((String) Objects.requireNonNull(documentSnapshot.getData()).get("title"));
-                        editTextDescription.setText((String) Objects.requireNonNull(documentSnapshot.getData()).get("description"));
+                        runOnUiThread(() -> {
+                            //        adding an older version of the title from the historyTitle list
+                            if (MyApp.titleOldVersion != null) {
+                            /*if (!MyApp.historyTitle.isEmpty() && !MyApp.historyTitle.getLast().equals(editTextTitle.getText().toString()))
+                MyApp.historyTitle.add(editTextTitle.getText().toString());*/
+                                editTextTitle.setText(MyApp.titleOldVersion);
+                                MyApp.titleOldVersion = null;
+                            } else {
+                                editTextTitle.setText((String) Objects.requireNonNull(documentSnapshot.getData()).get("title"));
+                                editTextDescription.setText((String) Objects.requireNonNull(documentSnapshot.getData()).get("description"));
+                            }
+                        });
                     }
                 }
             });
+
     }
 
     private void createFirestoreListener() {
@@ -478,23 +533,21 @@ public class EditNoteActivity extends AppCompatActivity {
         Resources.Theme theme = super.getTheme();
 //        skip this for now because it does not work. - tried to check if there can be a connection with google established.
 //        new Online().run();
-        if (MyApp.appInternInternetOffToggle){
+        if (MyApp.appInternInternetOffToggle) {
             theme.applyStyle(R.style.InternOffline, true);
             MyApp.lastTrafficLightState = TrafficLight.INTERN_OFFLINE;
             lastTrafficLightState = TrafficLight.INTERN_OFFLINE;
-        }
-        else if (isNetworkAvailable()) {
-            if (NetworkUtil.networkType == TelephonyManager.NETWORK_TYPE_EDGE){
+        } else if (isNetworkAvailable()) {
+            if (NetworkUtil.networkType == TelephonyManager.NETWORK_TYPE_EDGE) {
                 theme.applyStyle(R.style.MaybeConnected, true);
                 MyApp.lastTrafficLightState = TrafficLight.MAYBE_CONNECTED;
                 lastTrafficLightState = TrafficLight.MAYBE_CONNECTED;
-            }
-            else{
+            } else {
                 theme.applyStyle(R.style.Online, true);
                 MyApp.lastTrafficLightState = TrafficLight.ONLINE;
                 lastTrafficLightState = TrafficLight.ONLINE;
             }
-        } else{
+        } else {
             theme.applyStyle(R.style.Offline, true);
             MyApp.lastTrafficLightState = TrafficLight.OFFLINE;
             lastTrafficLightState = TrafficLight.OFFLINE;

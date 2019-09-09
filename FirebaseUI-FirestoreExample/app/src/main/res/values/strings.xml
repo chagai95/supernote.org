@@ -7,6 +7,9 @@
     <string name="activate_load_to_cache">load to cache every ____</string>
     <string name="deactivate_use_offline">deactivate use offline</string>
     <string name="turn_off_internet_automatically_when_e_connection_shows">turn off internet automatically when E connection shows</string>
+    <string name="turn_off_internet_automatically_when_app_started">turn off internet automatically when app started</string>
     <string name="disable">Disable</string>
     <string name="enable">Enable</string>
+    <string name="sendWhatsapp">send</string>
+    <string name="snoozeWhatsapp">snooze</string>
 </resources>

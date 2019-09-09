@@ -22,6 +22,18 @@
             android:checked="false"
             android:textOff="@string/enable"
             android:textOn="@string/disable" /> <!--text to be displayed whenever toggle button is checked-->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/turn_off_internet_automatically_when_app_started" />
+
+        <ToggleButton
+            android:id="@+id/simpleToggleButton2"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:checked="false"
+            android:textOff="@string/enable"
+            android:textOn="@string/disable" /> <!--text to be displayed whenever toggle button is checked-->
     </LinearLayout>
 
 </LinearLayout>

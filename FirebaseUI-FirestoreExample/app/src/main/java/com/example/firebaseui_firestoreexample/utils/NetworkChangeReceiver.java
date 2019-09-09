@@ -35,21 +35,26 @@ public class NetworkChangeReceiver extends BroadcastReceiver {
                         Toast.makeText(context, "bad internet", Toast.LENGTH_SHORT).show();
                     } else {
                         MyApp.lastTrafficLightState = TrafficLight.ONLINE;
-                        Toast.makeText(context, "back online", Toast.LENGTH_SHORT).show();
-                        if (activity instanceof EditNoteActivity) {
-                            MyApp.updateFromServer = true;
-                        }
-                        if (MyApp.isBackUpFailed()) {
-                            MyApp.loadToCache();
-                        }
+                        Toast.makeText(context, "back online mobile", Toast.LENGTH_SHORT).show();
+                        if (activity instanceof EditNoteActivity) MyApp.updateFromServer = true;
+//                      if(MyApp.updateLoadToCacheOnMobileData)
+//                      if (MyApp.isBackUpFailed()) MyApp.loadToCache();
                     }
 
+                } else {
+                    MyApp.lastTrafficLightState = TrafficLight.ONLINE;
+                    Toast.makeText(context, "back online wifi", Toast.LENGTH_SHORT).show();
+                    if (activity instanceof EditNoteActivity) {
+                        MyApp.updateFromServer = true;
+                    }
+                    if (MyApp.isBackUpFailed()) {
+                        MyApp.loadToCache();
+                    }
                 }
-
             }
 
             if (activity instanceof EditNoteActivity) {
-                if (MyApp.isActivityEditNoteVisible()) activity.recreate();
+                if (MyApp.isActivityEditNoteVisible() /*&& !MyApp.updateFromServer*/) activity.recreate();
             }
             if (activity instanceof MainActivity) {
 //                activity.getIntent().putExtra("networkChangeReciever", true);

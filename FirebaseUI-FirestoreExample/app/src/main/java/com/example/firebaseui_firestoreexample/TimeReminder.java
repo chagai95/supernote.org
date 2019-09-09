@@ -4,8 +4,8 @@ import com.google.firebase.Timestamp;
 
 public class TimeReminder extends Reminder {
     private Timestamp timestamp;
-    TimeReminder(String type, Timestamp timestamp) {
-        super(type);
+    TimeReminder(Timestamp timestamp) {
+        super("time");
         this.timestamp = timestamp;
     }
 

@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.content.res.Resources;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -16,11 +17,15 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.widget.Button;
+import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.fragment.app.DialogFragment;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -58,7 +63,8 @@ public class MainActivity extends AppCompatActivity {
     boolean onCreateCalled;
     InternetThread internetThread;
     private TrafficLight lastTrafficLightState;
-    private Menu menu;
+
+    private Context c= this;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -81,6 +87,18 @@ public class MainActivity extends AppCompatActivity {
         db = FirebaseFirestore.getInstance();
 
         MyApp.getFirstInstance().registerActivityLifecycleCallbacks(new MyActivityLifecycleCallbacks());
+        if (!MyApp.appStarted)
+            db.collection("utils").document("startAppOffline")
+                    .get().addOnCompleteListener(task -> {
+                if (task.isSuccessful()) {
+                    if ((boolean) Objects.requireNonNull(Objects.requireNonNull(task.getResult()).getData()).get("startAppOffline")) {
+                        db.disableNetwork();
+                        MyApp.appInternInternetOffToggle = true;
+                        MyApp.appStarted = true;
+                        recreate();
+                    }
+                }
+            });
 
         FloatingActionButton buttonAddNote = findViewById(R.id.button_add_note);
         buttonAddNote.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, NewNoteActivity.class)));
@@ -259,12 +277,16 @@ public class MainActivity extends AppCompatActivity {
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater menuInflater = getMenuInflater();
         menuInflater.inflate(R.menu.main_activity_menu, menu);
-        this.menu = menu;
         MenuItem appInternInternetOffToggleMenuItem = menu.findItem(R.id.app_intern_internet_toggle);
         if (MyApp.appInternInternetOffToggle)
             appInternInternetOffToggleMenuItem.setTitle("activate internet in App");
         else
             appInternInternetOffToggleMenuItem.setTitle("deactivate internet in App");
+        MenuItem reportBug = menu.findItem(R.id.report_bug);
+        if (isNetworkAvailable())
+            reportBug.setTitle("report bug");
+        else
+            reportBug.setTitle("no internet - report bug via whatsappReminder");
         return super.onCreateOptionsMenu(menu);
     }
 
@@ -284,10 +306,55 @@ public class MainActivity extends AppCompatActivity {
                 return true;
             case R.id.settings:
                 startActivity(new Intent(MainActivity.this, SettingsActivity.class));
+                return true;
+            case R.id.report_bug:
+                reportBug();
+                return true;
             default:
                 return super.onOptionsItemSelected(item);
         }
     }
+
+    private void reportBug() {
+        if (isNetworkAvailable()) {
+            Uri uriUrl = Uri.parse("https://api.whatsapp.com/send?phone=4915905872952&text=my%20name%20is%20_writeyournamehere_%20.%20nice%20to%20meet%20you%20chagai%20&source=&data=");
+            Intent launchBrowser = new Intent(Intent.ACTION_VIEW, uriUrl);
+            startActivity(launchBrowser);
+        } else addWhatsappReminder();
+    }
+
+    private void addWhatsappReminder() {
+        AlertDialog.Builder alert = new AlertDialog.Builder(this);
+        LinearLayout layout = new LinearLayout(c);
+        layout.setOrientation(LinearLayout.VERTICAL);
+
+
+        // Add another TextView here for the message label
+        final EditText messageEditText = new EditText(c);
+        messageEditText.setHint("write your message here");
+        layout.addView(messageEditText); // Another add method
+
+        alert.setTitle("report bug");
+        alert.setMessage("press ok to set time");
+        alert.setView(layout); // Again this is a set method, not add
+
+        //only works once for some reason
+        alert.setPositiveButton("Ok", (dialog, whichButton) -> {
+            Log.i("AlertDialog", "TextEntry 2 Entered " + messageEditText.getText().toString());
+            showDatePicker("",messageEditText.getText().toString());
+        });
+
+        alert.setNegativeButton("Cancel", (dialog, whichButton) -> {
+            // Canceled.
+        });
+        alert.show();
+    }
+
+    public void showDatePicker(String number, String message) {
+        DialogFragment newFragment = new MyDatePickerFragment(null, c, number, message);
+        newFragment.show(getSupportFragmentManager(), "date picker");
+    }
+
 
 
     @SuppressLint("HandlerLeak")

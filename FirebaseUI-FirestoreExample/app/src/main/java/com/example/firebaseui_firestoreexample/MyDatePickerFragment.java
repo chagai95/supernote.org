@@ -8,12 +8,12 @@ import android.app.TimePickerDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
-import android.util.Log;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.fragment.app.DialogFragment;
 
+import com.example.firebaseui_firestoreexample.utils.MyApp;
 import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.DocumentReference;
 
@@ -81,41 +81,62 @@ public class MyDatePickerFragment extends DialogFragment {
                     AlarmManager alarmManager = (AlarmManager) c.getSystemService(Context.ALARM_SERVICE);
                     Intent myIntent = new Intent(c, MyBroadcastReceiver.class);
 
-                    myIntent.putExtra("whatsapp", true);
-                    myIntent.putExtra("whatsappNumber", whatsappNumber);
-                    myIntent.putExtra("whatsappMessage", whatsappMessage);
 
-//                      is this for the reminder id?
-                    myIntent.putExtra("noteID", documentReference.getId());
-
-
-                    myIntent.setAction("TimeReminder");
-                    PendingIntent pendingIntent = PendingIntent.getBroadcast(c, 0, myIntent, 0);
+                    if (documentReference == null) {
+                        myIntent.setAction("reportBugWhatsappReminder");
+                        myIntent.putExtra("bugReportMessage", whatsappMessage);
 
                         Date dateReminder = null;
-                    try {
-                        //difference between now and the reminder
-                        SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.GERMANY);
-                        String dateReminderString = dateString + " " + timeString;
-                        dateReminder = sdf.parse(dateReminderString);
-                    } catch (ParseException e) {
-                        e.printStackTrace();
-                    }
+                        try {
+                            //difference between now and the reminder
+                            SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.GERMANY);
+                            String dateReminderString = dateString + " " + timeString;
+                            dateReminder = sdf.parse(dateReminderString);
+                        } catch (ParseException e) {
+                            e.printStackTrace();
+                        }
+                        PendingIntent pendingIntent = PendingIntent.getBroadcast(c, 0, myIntent, 0);
 
-                        /*Reminder reminder = new TimeReminder("time",new Timestamp(Objects.requireNonNull(dateReminder)));
+                        Objects.requireNonNull(alarmManager).set(AlarmManager.RTC_WAKEUP, Objects.requireNonNull(dateReminder).getTime(), pendingIntent);
+
+                    } else {
+
+                        if (!whatsappNumber.equals("") && !whatsappMessage.equals("")) {
+                            myIntent.putExtra("whatsappReminder", true);
+                            myIntent.putExtra("whatsappNumber", whatsappNumber);
+                            myIntent.putExtra("whatsappMessage", whatsappMessage);
+                        }
+
+                        myIntent.putExtra("noteID", documentReference.getId());
+
+
+                        myIntent.setAction("TimeReminder");
+                        PendingIntent pendingIntent = PendingIntent.getBroadcast(c, 0, myIntent, 0);
+
+                        Date dateReminder = null;
+                        try {
+                            //difference between now and the reminder
+                            SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.GERMANY);
+                            String dateReminderString = dateString + " " + timeString;
+                            dateReminder = sdf.parse(dateReminderString);
+                        } catch (ParseException e) {
+                            e.printStackTrace();
+                        }
+
+                        /*Reminder reminder = new TimeReminder(new Timestamp(Objects.requireNonNull(dateReminder)));
                         MyApp.remindersRef.add(reminder);*/
 
                         documentReference.collection("Reminders")
-                                .add(new TimeReminder("time", new Timestamp(Objects.requireNonNull(dateReminder))))
+                                .add(new TimeReminder(new Timestamp(Objects.requireNonNull(dateReminder))))
                                 .addOnCompleteListener(task -> {
-                                    if (task.isSuccessful()) myIntent.putExtra("reminderID",Objects.requireNonNull(task.getResult()).getId());
+                                    if (task.isSuccessful())
+                                        myIntent.putExtra("reminderID", Objects.requireNonNull(task.getResult()).getId());
+                                    MyApp.timeReminders.put(Objects.requireNonNull(task.getResult()).getId(), task.getResult());
                                 });
 
 
                         Objects.requireNonNull(alarmManager).set(AlarmManager.RTC_WAKEUP, dateReminder.getTime(), pendingIntent);
-
-
-
+                    }
 
 
                 }, mHour, mMinute, false);

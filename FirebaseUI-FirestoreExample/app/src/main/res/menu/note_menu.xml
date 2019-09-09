@@ -8,6 +8,8 @@
         app:showAsAction="ifRoom"/>
     <item android:id="@+id/title_history"
         android:title="title history"/>
+    <item android:id="@+id/app_intern_internet_toggle_in_note_activity"
+        android:title=""/>
     <item android:id="@+id/refreshTrafficLight"
         android:title="refresh"/>
     <item android:id="@+id/save_for_use_offline"
@@ -30,7 +32,7 @@
     <item
         android:id="@+id/action_add_whatsappreminder"
         android:orderInCategory="100"
-        android:title="action add whatsapp reminder"
+        android:title="add whatsapp reminder"
         app:showAsAction="never" />
 
 </menu>

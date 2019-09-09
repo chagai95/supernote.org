@@ -15,7 +15,7 @@ public class NetworkUtil {
      private static final int TYPE_NOT_CONNECTED = 0;
      static final int NETWORK_STATUS_NOT_CONNECTED = 0;
      private static final int NETWORK_STATUS_WIFI = 1;
-     static final int NETWORK_STATUS_MOBILE = 2;
+     public static final int NETWORK_STATUS_MOBILE = 2;
      private static final int NETWORK_TYPE_WIFI = 30;
 
      public static int networkType;
@@ -67,6 +67,7 @@ public class NetworkUtil {
         return TYPE_NOT_CONNECTED;
     }
 
+//    could add the other changes in network type to and call this from the refresh method or from on create or from onResume
     public static int getConnectivityStatusString(Context context) {
         int conn = NetworkUtil.getConnectivityStatus(context);
         int status = NETWORK_STATUS_NOT_CONNECTED;

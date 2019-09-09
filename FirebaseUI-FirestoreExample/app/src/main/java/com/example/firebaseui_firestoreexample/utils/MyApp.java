@@ -1,24 +1,36 @@
 package com.example.firebaseui_firestoreexample.utils;
 
 
+import android.annotation.SuppressLint;
 import android.app.AlarmManager;
 import android.app.Application;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
 import android.net.ConnectivityManager;
+import android.os.Bundle;
+import android.provider.Settings;
 import android.telephony.CellInfo;
 import android.telephony.CellInfoGsm;
 import android.telephony.CellInfoLte;
 import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyManager;
 import android.util.Log;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.core.app.TaskStackBuilder;
 
+import com.example.firebaseui_firestoreexample.EditNoteActivity;
+import com.example.firebaseui_firestoreexample.LocationReminder;
 import com.example.firebaseui_firestoreexample.MainActivity;
 import com.example.firebaseui_firestoreexample.MyBroadcastReceiver;
+import com.example.firebaseui_firestoreexample.NotificationHelper;
+import com.example.firebaseui_firestoreexample.R;
 import com.example.firebaseui_firestoreexample.TimeReminder;
 import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.CollectionReference;
@@ -32,20 +44,22 @@ import com.google.firebase.firestore.Source;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Random;
 
 public class MyApp extends Application {
     private static MyApp firstInstance;
     public static boolean updateFromServer;
     public static String titleOldVersion;
     public static long totalTime;
-    public static LinkedList<String> historyTitle;
     public static HashMap<String, OfflineNoteData> allNotesOfflineNoteData;
+    public static HashMap<String, DocumentReference> timeReminders;
+    public static HashMap<String, DocumentReference> locationReminders;
     private static boolean activityVisible;
     private static boolean activityEditNoteVisible;
     private static boolean backUpFailed;
+    public static boolean appStarted;
     //    makeText(c, "might not be up to date last updated:", LENGTH_SHORT).show();
     FirebaseFirestore db;
     public static DocumentReference forceStop;
@@ -59,18 +73,44 @@ public class MyApp extends Application {
 
 
     public MyApp() {
-        historyTitle = new LinkedList<>();
         allNotesOfflineNoteData = new HashMap<>();
         totalTime = 0;
         backUpFailed = false;
         autoInternInternetOffWhenE = false;
         appInternInternetOffToggle = false;
+        appStarted = false;
         uncaughtExceptionHandler = Thread.getDefaultUncaughtExceptionHandler();
+        timeReminders = new HashMap<>();
+        locationReminders = new HashMap<>();
+//        startAppOffline();
 
         // setup handler for uncaught exception
         Thread.setDefaultUncaughtExceptionHandler(_unCaughtExceptionHandler);
     }
 
+    /*private void startAppOffline() {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        db.collection("utils").document("startAppOffline")
+                .get().addOnCompleteListener(task -> {
+            if (task.isSuccessful()) {
+                if ((boolean) Objects.requireNonNull(Objects.requireNonNull(task.getResult()).getData()).get("startAppOffline")) {
+                    db.disableNetwork();
+                    MyApp.appInternInternetOffToggle = true;
+                    new Thread(() -> {
+                        try {
+                            TimeUnit.SECONDS.sleep(4);
+                            startActivity(new Intent(getContext(), MainActivity.class));
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }).start();
+                }
+            }
+        });
+    }*/
+
+    //    tried in on create
+    @SuppressWarnings("unused")
     private void setTelephonyListener() {
         TelephonyManager telephonyManager = (TelephonyManager) getSystemService(TELEPHONY_SERVICE);
         if (telephonyManager == null)
@@ -125,6 +165,7 @@ public class MyApp extends Application {
                 .setCacheSizeBytes(FirebaseFirestoreSettings.CACHE_SIZE_UNLIMITED)
                 .build();
         db.setFirestoreSettings(settings);
+        //startAppOffline();
         forceStop = db.collection("utils").document("forceStop");
 //        setTelephonyListener();
 //      trying to add a listener in order to ensure all reminders get added instantly on all devices -
@@ -215,7 +256,9 @@ public class MyApp extends Application {
                  /*   TimeReminder timeReminder = reminder.toObject(TimeReminder.class);
                 if (!timeReminder.getTimestamp().toDate().before(new Date()))
                     addReminderToAlarmManager(reminder);*/
-                    reminder.getReference().addSnapshotListener((documentSnapshot, e) -> {
+                    DocumentReference reminderDocRef = reminder.getReference();
+                    timeReminders.put(reminderDocRef.getId(), reminderDocRef);
+                    reminderDocRef.addSnapshotListener((documentSnapshot, e) -> {
                         if (e != null)
                             System.err.println("Listen failed: " + e);
                         addReminderToAlarmManager(Objects.requireNonNull(documentSnapshot));
@@ -223,7 +266,72 @@ public class MyApp extends Application {
                     });
                 }
         });
+        db.collectionGroup("Reminders")
+                .whereEqualTo("type", "location")
+                .get().addOnCompleteListener(task -> {
+            if (task.isSuccessful())
+                for (QueryDocumentSnapshot reminder : Objects.requireNonNull(task.getResult())) {
+                    DocumentReference reminderDocRef = reminder.getReference();
+                    locationReminders.put(reminderDocRef.getId(), reminderDocRef);
+                    reminderDocRef.addSnapshotListener((documentSnapshot, e) -> {
+                        if (e != null)
+                            System.err.println("Listen failed: " + e);
+                        addReminderToLocationManager(Objects.requireNonNull(documentSnapshot),getContext());
+                        Log.i("ReminderID", documentSnapshot.getId());
+                    });
+                }
+        });
 
+    }
+
+    @SuppressLint("MissingPermission")
+    public static void addReminderToLocationManager(DocumentSnapshot reminder,Context c) {
+        LocationManager locationManager = (LocationManager) c.getSystemService(LOCATION_SERVICE);
+
+        LocationListener listener = new LocationListener() {
+            @Override
+            public void onLocationChanged(Location location) {
+
+                LocationReminder locationReminder = Objects.requireNonNull(reminder.toObject(LocationReminder.class));
+                float distanceInMeters = locationReminder.getLocation().distanceTo(location);
+                if (locationReminder.getRadius() > (double) distanceInMeters) {
+                    Log.i("location", location.getLongitude() + " " + location.getLatitude());
+                    Toast.makeText(getContext(), location.getLongitude() + " " + location.getLatitude(), Toast.LENGTH_SHORT).show();
+                    createNotificationForLocationReminder(reminder.getReference(),getContext());
+                }
+
+            }
+
+
+            @Override
+            public void onStatusChanged(String s, int i, Bundle bundle) {
+
+            }
+
+            @Override
+            public void onProviderEnabled(String s) {
+
+            }
+
+            @Override
+            public void onProviderDisabled(String s) {
+                Intent i = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+                c.startActivity(i);
+            }
+        };
+
+
+        Objects.requireNonNull(locationManager).requestLocationUpdates("gps", 500, 1, listener);
+    }
+
+    public static void createNotificationForLocationReminder(DocumentReference reminderDocRef,Context c) {
+        CollectionReference coll = reminderDocRef.getParent();
+        DocumentReference r = coll.getParent();
+        String s = Objects.requireNonNull(r).getId();
+        Intent intent = new Intent(getContext(), MyBroadcastReceiver.class);
+        intent.putExtra("noteID", s);
+        intent.setAction("LocationReminder");
+        c.startActivity(intent);
     }
 
     private void addReminderToAlarmManager(DocumentSnapshot reminder) {
