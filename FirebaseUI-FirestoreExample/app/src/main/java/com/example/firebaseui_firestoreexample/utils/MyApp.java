@@ -13,6 +13,7 @@ import android.location.LocationListener;
 import android.location.LocationManager;
 import android.net.ConnectivityManager;
 import android.os.Bundle;
+import android.os.Handler;
 import android.provider.Settings;
 import android.telephony.CellInfo;
 import android.telephony.CellInfoGsm;
@@ -111,8 +112,8 @@ public class MyApp extends Application {
 
     //    tried in on create
     @SuppressWarnings("unused")
-    private void setTelephonyListener() {
-        TelephonyManager telephonyManager = (TelephonyManager) getSystemService(TELEPHONY_SERVICE);
+    public static void setTelephonyListener(Context c) {
+        TelephonyManager telephonyManager = (TelephonyManager) c.getSystemService(TELEPHONY_SERVICE);
         if (telephonyManager == null)
             Log.d("TM", "TM is null");
         else
@@ -167,7 +168,6 @@ public class MyApp extends Application {
         db.setFirestoreSettings(settings);
         //startAppOffline();
         forceStop = db.collection("utils").document("forceStop");
-//        setTelephonyListener();
 //      trying to add a listener in order to ensure all reminders get added instantly on all devices -
 //      stuck because you can not get a specific reminder using it's id from a sub collection(Query)
 //      possible solution - add the time(value) and the noteID(key) perhaps as a map. - several maps for different reminder types.
@@ -188,7 +188,18 @@ public class MyApp extends Application {
 
                     }
                 });*/
-        loadRemindersAndRegisterListeners();
+//        loadRemindersAndRegisterListeners();
+    }
+
+    void addConnectivityListener(){
+
+        Handler handler = new Handler();
+        handler.postDelayed(() -> {
+            // check conn
+            int status = NetworkUtil.getConnectivityStatusString(getContext());
+//           restart activity when
+            addConnectivityListener();
+        }, 5000);
     }
 
 
