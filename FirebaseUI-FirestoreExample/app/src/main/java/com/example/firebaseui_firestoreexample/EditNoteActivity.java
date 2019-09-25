@@ -1,20 +1,11 @@
 package com.example.firebaseui_firestoreexample;
 
-import android.Manifest;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.content.res.Resources;
+import android.graphics.Color;
 import android.location.Location;
-import android.location.LocationListener;
-import android.location.LocationManager;
-import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
-import android.os.Build;
 import android.os.Bundle;
-import android.provider.Settings;
-import android.telephony.TelephonyManager;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
@@ -25,16 +16,12 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.NumberPicker;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
 import androidx.fragment.app.DialogFragment;
 
 import com.example.firebaseui_firestoreexample.utils.MyApp;
-import com.example.firebaseui_firestoreexample.utils.NetworkUtil;
 import com.example.firebaseui_firestoreexample.utils.OfflineNoteData;
 import com.example.firebaseui_firestoreexample.utils.TrafficLight;
 import com.google.firebase.firestore.DocumentReference;
@@ -43,14 +30,16 @@ import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.GeoPoint;
 import com.google.firebase.firestore.ListenerRegistration;
+import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.Source;
 
+import java.util.ArrayList;
 import java.util.Objects;
 
 import static android.widget.Toast.LENGTH_SHORT;
 import static android.widget.Toast.makeText;
 
-public class EditNoteActivity extends AppCompatActivity {
+public class EditNoteActivity extends MyActivity {
     private EditText editTextTitle;
     private EditText editTextDescription;
     private NumberPicker numberPickerPriority;
@@ -67,6 +56,7 @@ public class EditNoteActivity extends AppCompatActivity {
     Context c = this;
 
     boolean onCreateCalled;
+    boolean onCreateCalledForTextWatcher;
     private boolean keepOffline;
     private TrafficLight lastTrafficLightState;
     private FirebaseFirestore db;
@@ -91,6 +81,7 @@ public class EditNoteActivity extends AppCompatActivity {
         offlineNoteData = Objects.requireNonNull(MyApp.allNotesOfflineNoteData.get(noteID));
         documentRef = offlineNoteData.getDocumentReference();
         onCreateCalled = true;
+        onCreateCalledForTextWatcher = true;
 
 
         /*cursor = 0;
@@ -99,10 +90,9 @@ public class EditNoteActivity extends AppCompatActivity {
             @Override
             public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {
 //                cursor = editTextTitle.getSelectionStart();
-//              perhaps send the cursor position to the the server and change the cursor everywhere.
+//                perhaps send the cursor position to the the server and change the cursor everywhere.
 //                registration.remove();
-                documentRef.update("history", FieldValue.arrayUnion(charSequence.toString())).addOnSuccessListener(aVoid -> successfulUpload())
-                        .addOnFailureListener(e -> unsuccessfulUpload(e));
+
             }
 
             @Override
@@ -117,24 +107,45 @@ public class EditNoteActivity extends AppCompatActivity {
                     changeCursorPositionBack = false;
                 }*/
 
-                /*if (MyApp.historyTitle.isEmpty())
-                    MyApp.historyTitle.add(editable.toString());
-                if (!MyApp.historyTitle.getLast().equals(editable.toString()))
-                    MyApp.historyTitle.add(editable.toString());*/
-                if (!MyApp.updateFromServer)
-                    if (isNetworkAvailable()) {
+
+//              onCreateCalledForTextWatcher is only to stop the saving of data when initializing the textWatcher
+//              (I assume it initializes but this might actually be called by another method - perhaps in onResume)
+                if (!onCreateCalledForTextWatcher) {
+                    if (isNetworkAvailable() && !MyApp.internetDisabledInternally) {
+//                        when online uploading directly to the main note history list.
+                        documentRef.update("history", FieldValue.arrayUnion(editable.toString())).addOnSuccessListener(aVoid -> successfulUpload())
+                                .addOnFailureListener(e -> unsuccessfulUpload(e));
+//                        because the listener is on we have to check the text we want to upload is not already online otherwise we end up in an endless loop.
                         documentRef.get().addOnCompleteListener(task -> {
                             if (task.isSuccessful()) {
                                 DocumentSnapshot documentSnapshot = task.getResult();
-                            /*if (!MyApp.historyTitle.getLast().equals(Objects.requireNonNull(Objects.requireNonNull(documentSnapshot).getData()).get("title")))
-                                MyApp.historyTitle.add((String) Objects.requireNonNull(documentSnapshot.getData()).get("title"));*/
-                                if (!Objects.requireNonNull(documentSnapshot).getMetadata().isFromCache())
-                                    if (!Objects.requireNonNull(documentSnapshot.toObject(Note.class)).getTitle().equals(editable.toString()))
-                                        documentRef.update("title", editable.toString());
+                                assert documentSnapshot != null;
+                                Note note = documentSnapshot.toObject(Note.class);
+                                assert note != null;
+                                offlineNoteData.setNote(note); // saving to enable quicker loading or pre-loading.
+                                if (!note.getTitle().equals(editable.toString()))
+                                    documentRef.update("title", editable.toString());
                             }
                         });
-                    } /*else
-                        documentRef.update("title", editable.toString());*/
+                    }
+                    if (!isNetworkAvailable() || MyApp.internetDisabledInternally) {
+//                        first we update the title field so when we come back to the note even without internet it will show the new value.
+                        documentRef.update("title", editable.toString());
+//                        then we push a new note version to the sub collection of the note, which is named the id of the device - this is our unique collection
+//                        for the changes on this device.
+//                        the sub collection is created if it had not existed before.
+//                        calling get() just to to be able to convert the docRef to an object so we can copy the note using method copy note.
+                        documentRef.get(Source.CACHE).addOnCompleteListener(task -> {
+                            if (task.isSuccessful()) {
+                                Note note = Objects.requireNonNull(task.getResult()).toObject(Note.class);
+                                assert note != null;
+                                offlineNoteData.setNote(note); // saving to enable quicker loading or pre-loading.
+                                documentRef.collection(MyApp.getDeviceID(c)).add(note.newNoteVersion());
+                            }
+                        });
+
+                    }
+                } else onCreateCalledForTextWatcher = false;
             }
         };
         editTextTitle.addTextChangedListener(textWatcherTitle);
@@ -182,8 +193,6 @@ public class EditNoteActivity extends AppCompatActivity {
 
         alert.setPositiveButton("Server data", (dialog, whichButton) -> {
             editTextTitle.setText(serverData);
-            documentRef.update("history", FieldValue.arrayUnion(serverData)).addOnSuccessListener(aVoid -> successfulUpload())
-                    .addOnFailureListener(this::unsuccessfulUpload);
             recreate();
         });
 
@@ -199,7 +208,7 @@ public class EditNoteActivity extends AppCompatActivity {
         MenuInflater menuInflater = getMenuInflater();
         menuInflater.inflate(R.menu.note_menu, menu);
         MenuItem appInternInternetOffToggleMenuItem = menu.findItem(R.id.app_intern_internet_toggle_in_note_activity);
-        if (MyApp.appInternInternetOffToggle)
+        if (MyApp.internetDisabledInternally)
             appInternInternetOffToggleMenuItem.setTitle("activate internet in App");
         else
             appInternInternetOffToggleMenuItem.setTitle("deactivate internet in App");
@@ -216,12 +225,12 @@ public class EditNoteActivity extends AppCompatActivity {
                 titleHistory();
                 return true;
             case R.id.app_intern_internet_toggle_in_note_activity:
-                if (MyApp.appInternInternetOffToggle) {
+                if (MyApp.internetDisabledInternally) {
                     if (isNetworkAvailable()) MyApp.updateFromServer = true;
                     db.enableNetwork();
                 } else
                     db.disableNetwork();
-                MyApp.appInternInternetOffToggle = !MyApp.appInternInternetOffToggle;
+                MyApp.internetDisabledInternally = !MyApp.internetDisabledInternally;
                 recreate();
                 return true;
             case R.id.action_add_reminder:
@@ -289,7 +298,7 @@ public class EditNoteActivity extends AppCompatActivity {
             location.setLongitude(locationLongitude);
 
             documentRef.collection("Reminders")
-                    .add(new LocationReminder(new GeoPoint(location.getLatitude(), location.getLongitude())))
+                    .add(new LocationReminder(new GeoPoint(location.getLatitude(), location.getLongitude()), radiusDouble))
                     .addOnCompleteListener(task -> {
                         if (task.isSuccessful()) {
                             MyApp.locationReminders.put(Objects.requireNonNull(task.getResult()).getId(), task.getResult());
@@ -377,6 +386,7 @@ public class EditNoteActivity extends AppCompatActivity {
         documentRef.get().addOnCompleteListener(task -> {
             if (task.isSuccessful()) {
                 Note note = Objects.requireNonNull(task.getResult()).toObject(Note.class);
+                offlineNoteData.setNote(note); // saving to enable quicker loading or pre-loading.
                 if (keepOffline || Objects.requireNonNull(note).isKeepOffline()) {
                     ListenerRegistration listenerRegistration = documentRef.addSnapshotListener((documentSnapshot, e) -> {
                         if (e != null) {
@@ -402,69 +412,112 @@ public class EditNoteActivity extends AppCompatActivity {
         if (!onCreateCalled && MyApp.lastTrafficLightState != lastTrafficLightState)
             recreate();
 
-        if (MyApp.updateFromServer) {
-            documentRef.get(Source.SERVER).addOnCompleteListener(task -> {
-                if (task.isSuccessful()) {
-                    MyApp.updateFromServer = false;
-                    DocumentSnapshot documentSnapshot = task.getResult();
-                    Note noteServer = Objects.requireNonNull(documentSnapshot).toObject(Note.class);
-                    if (Objects.requireNonNull(documentSnapshot).exists() && noteServer != null) {
-                        if (!editTextTitle.getText().toString().equals(noteServer.getTitle())
-                                && !editTextTitle.getText().toString().equals(noteServer.getHistory().get(noteServer.getHistory().size()-1))) {
-                            chooseBetweenServerDataAndLocalData((String) Objects.requireNonNull(documentSnapshot.getData()).get("title"));
-                        }
-//                        if (!MyApp.historyTitle.getLast().equals(Objects.requireNonNull(documentSnapshot.getData()).get("title")))
-//                            MyApp.historyTitle.add((String) Objects.requireNonNull(documentSnapshot.getData()).get("title"));
-                    }
-                } else {
-                    makeText(c, "didn't get data from server trying again!", LENGTH_SHORT).show();
-                    recreate();
-                }
-            });
-            /*documentRef.get().addOnSuccessListener(documentSnapshot -> {
-                Note note = documentSnapshot.toObject(Note.class);
-                if (note != null) {
-                    if (!editTextTitle.getText().toString().equals(note.getTitle())) {
-                        chooseBetweenServerDataAndLocalData(note.getTitle());
-                    }
-                    if (!MyApp.historyTitle.getLast().equals(note.getTitle()))
-                        MyApp.historyTitle.add(note.getTitle());
-                }
-            });*/
-        }
+        editTextTitle.removeTextChangedListener(textWatcherTitle);
+        editTextTitle.setTextColor(Color.parseColor("#DF3B0D"));
+        editTextTitle.setText(offlineNoteData.getNote().getTitle());
+        editTextTitle.addTextChangedListener(textWatcherTitle);
+
+        editTextDescription.removeTextChangedListener(textWatcherDescription);
+        editTextDescription.setTextColor(Color.parseColor("#DF3B0D"));
+        editTextDescription.setText(offlineNoteData.getNote().getDescription());
+        editTextDescription.addTextChangedListener(textWatcherDescription);
 
 
-        if (isNetworkAvailable() && !MyApp.appInternInternetOffToggle) {
-            //        adding an older version of the title from the historyTitle list
+        if (isNetworkAvailable() && !MyApp.internetDisabledInternally) {
+
+            //adding an older version of the title from the historyTitle list
             if (MyApp.titleOldVersion != null) {
-                            /*if (!MyApp.historyTitle.isEmpty() && !MyApp.historyTitle.getLast().equals(editTextTitle.getText().toString()))
-                MyApp.historyTitle.add(editTextTitle.getText().toString());*/
                 editTextTitle.setText(MyApp.titleOldVersion);
                 MyApp.titleOldVersion = null;
             }
-            if (offlineNoteData.getListenerRegistration() != null)
-                offlineNoteData.getListenerRegistration().remove();
-            createFirestoreListener();
-        } else
+
+            documentRef.get().addOnCompleteListener(task -> {
+                if (task.isSuccessful()) {
+                    DocumentSnapshot documentSnapshot = task.getResult();
+                    if (Objects.requireNonNull(documentSnapshot).exists()) {
+                        Note note = documentSnapshot.toObject(Note.class);
+                        assert note != null;
+                        offlineNoteData.setNote(note); // saving to enable quicker loading or pre-loading.
+
+//                        if this equals -1 that means we are coming from an online state so there is no need to check for changes
+//                        and we can set the listener directly.
+                        if (offlineNoteData.getLastKnownNoteHistoryListSize() != -1) {
+//                            getting the unique device history list - this has no use online so we can just call it from the cache.
+                            documentRef.collection(MyApp.getDeviceID(c)).orderBy("created", Query.Direction.ASCENDING).get(Source.CACHE).addOnCompleteListener(taskOfflineHistory -> {
+                                if (taskOfflineHistory.isSuccessful()) {
+                                    ArrayList<DocumentSnapshot> deviceHistoryList = (ArrayList<DocumentSnapshot>) Objects.requireNonNull(taskOfflineHistory.getResult()).getDocuments();
+//                                    if the size of the main note history list has changed we want to check if the title is not coincidentally the same and then
+//                                    if not we can call the dialog so the user can choose.
+                                    if (offlineNoteData.getLastKnownNoteHistoryListSize() != note.getHistory().size())
+                                        if (!note.getHistory().get(note.getHistory().size() - 1).equals(Objects.requireNonNull(deviceHistoryList.get(deviceHistoryList.size() - 1).getData()).get("title")))
+                                            chooseBetweenServerDataAndLocalData(note.getHistory().get(note.getHistory().size() - 1));
+//                                    moving all the elements from the unique device history list to the main note history list and
+//                                    then clearing unique device history list.
+                                    for (DocumentSnapshot documentSnapshotOfflineHistory :
+                                            deviceHistoryList) {
+                                        documentRef.update("history", FieldValue.arrayUnion(Objects.requireNonNull(documentSnapshotOfflineHistory.getData()).get("title")));
+                                    }
+                                    for (DocumentSnapshot documentSnapshotOfflineHistory :
+                                            deviceHistoryList) {
+                                        documentSnapshotOfflineHistory.getReference().delete();
+                                    }
+//                                    setting back to -1 so this will not be called when the note was not edited offline.
+                                    offlineNoteData.setLastKnownNoteHistoryListSize(-1);
+
+//                                    this is called here so it does not mess with the main note history list before
+//                                    we are done with transferring everything and we also do not want the size to change before checking if it changed.
+                                    if (offlineNoteData.getListenerRegistration() != null)
+                                        offlineNoteData.getListenerRegistration().remove();
+                                    createFirestoreListener();
+                                }
+                            });
+                        } else {
+                            if (offlineNoteData.getListenerRegistration() != null)
+                                offlineNoteData.getListenerRegistration().remove();
+                            createFirestoreListener();
+                        }
+                    }
+                }
+            });
+
+
+        }
+
+        if (!isNetworkAvailable() || MyApp.internetDisabledInternally) {
             documentRef.get().addOnCompleteListener(task -> {
                 if (task.isSuccessful()) {
                     DocumentSnapshot documentSnapshot = task.getResult();
                     if (Objects.requireNonNull(documentSnapshot).exists()) {
                         runOnUiThread(() -> {
-                            //        adding an older version of the title from the historyTitle list
+                            Note note = documentSnapshot.toObject(Note.class);
+                            assert note != null;
+                            offlineNoteData.setNote(note); // saving to enable quicker loading or pre-loading.
+//                            setting the variable only the first time we move from online to offline - if it is -1 that means
+//                            we were online before.                    offlineNoteData.setNote(note); // saving to enable quicker loading or pre-loading.
+                            if (offlineNoteData.getLastKnownNoteHistoryListSize() == -1)
+                                offlineNoteData.setLastKnownNoteHistoryListSize(note.getHistory().size());
+
+                            // adding an older version of the title from the historyTitle list
                             if (MyApp.titleOldVersion != null) {
-                            /*if (!MyApp.historyTitle.isEmpty() && !MyApp.historyTitle.getLast().equals(editTextTitle.getText().toString()))
-                MyApp.historyTitle.add(editTextTitle.getText().toString());*/
                                 editTextTitle.setText(MyApp.titleOldVersion);
                                 MyApp.titleOldVersion = null;
                             } else {
-                                editTextTitle.setText((String) Objects.requireNonNull(documentSnapshot.getData()).get("title"));
-                                editTextDescription.setText((String) Objects.requireNonNull(documentSnapshot.getData()).get("description"));
+                                editTextTitle.removeTextChangedListener(textWatcherTitle);
+                                editTextTitle.setTextColor(Color.BLACK);
+                                editTextTitle.setText(note.getTitle());
+                                editTextTitle.addTextChangedListener(textWatcherTitle);
+
+                                editTextDescription.removeTextChangedListener(textWatcherDescription);
+                                editTextDescription.setTextColor(Color.BLACK);
+                                editTextDescription.setText(note.getDescription());
+                                editTextDescription.addTextChangedListener(textWatcherDescription);
+
                             }
                         });
                     }
                 }
             });
+        }
 
     }
 
@@ -476,23 +529,17 @@ public class EditNoteActivity extends AppCompatActivity {
             if (documentSnapshot != null && documentSnapshot.exists()) {
                 Note note = documentSnapshot.toObject(Note.class);
                 if (note != null) {
+                    offlineNoteData.setNote(note); // saving to enable quicker loading or pre-loading.
                     // check if the data in the server has newer date than the one in the editable and force it to be shown
                     // this line should go off when the internet comes back on.
-                        /*if (!MyApp.historyTitle.isEmpty() && !MyApp.historyTitle.getLast().equals(note.getTitle()))
-                            MyApp.historyTitle.add(note.getTitle());*/
                     if (!documentSnapshot.getMetadata().hasPendingWrites()) {
+                            editTextTitle.setTextColor(Color.BLACK);
                         if (!note.getTitle().equals(editTextTitle.getText().toString())) {
-//                            editTextTitle.removeTextChangedListener(textWatcherTitle);
+                            editTextTitle.removeTextChangedListener(textWatcherTitle);
                             editTextTitle.setText(note.getTitle());
-                                /*if (documentSnapshot.getMetadata().isFromCache()) {
-                                    documentRef.get().addOnCompleteListener(task -> {
-                                        if (task.isSuccessful()) {
-                                            editTextTitle.setText((String) Objects.requireNonNull(task.getResult()).get("title"));
-                                        }
-                                    });
-                                }*/
-//                            editTextTitle.addTextChangedListener(textWatcherTitle);
+                            editTextTitle.addTextChangedListener(textWatcherTitle);
                         }
+                            editTextDescription.setTextColor(Color.BLACK);
                         if (!note.getDescription().equals(editTextDescription.toString())) {
                             editTextDescription.removeTextChangedListener(textWatcherDescription);
                             editTextDescription.setText(note.getDescription());
@@ -528,43 +575,14 @@ public class EditNoteActivity extends AppCompatActivity {
     }
 
     @Override
-
     public Resources.Theme getTheme() {
-        Resources.Theme theme = super.getTheme();
-//        skip this for now because it does not work. - tried to check if there can be a connection with google established.
-//        new Online().run();
-        if (MyApp.appInternInternetOffToggle) {
-            theme.applyStyle(R.style.InternOffline, true);
-            MyApp.lastTrafficLightState = TrafficLight.INTERN_OFFLINE;
-            lastTrafficLightState = TrafficLight.INTERN_OFFLINE;
-        } else if (isNetworkAvailable()) {
-            if (NetworkUtil.networkType == TelephonyManager.NETWORK_TYPE_EDGE) {
-                theme.applyStyle(R.style.MaybeConnected, true);
-                MyApp.lastTrafficLightState = TrafficLight.MAYBE_CONNECTED;
-                lastTrafficLightState = TrafficLight.MAYBE_CONNECTED;
-            } else {
-                theme.applyStyle(R.style.Online, true);
-                MyApp.lastTrafficLightState = TrafficLight.ONLINE;
-                lastTrafficLightState = TrafficLight.ONLINE;
-            }
-        } else {
-            theme.applyStyle(R.style.Offline, true);
-            MyApp.lastTrafficLightState = TrafficLight.OFFLINE;
-            lastTrafficLightState = TrafficLight.OFFLINE;
-        }
+        super.setLastTrafficLightState(lastTrafficLightState);
+        Resources.Theme theme = super.getTrafficLightTheme();
+        lastTrafficLightState = super.getLastTrafficLightState();
         return theme;
     }
 
-    private boolean isNetworkAvailable() {
-        ConnectivityManager manager =
-                (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-        assert manager != null; //added to avoid warning
-        NetworkInfo networkInfo = manager.getActiveNetworkInfo();
-        boolean isAvailable = false;
-        if (networkInfo != null && networkInfo.isConnected()) {
-            // Network is present and connected
-            isAvailable = true;
-        }
-        return isAvailable;
+    boolean isNetworkAvailable() {
+        return super.isNetworkAvailable();
     }
 }

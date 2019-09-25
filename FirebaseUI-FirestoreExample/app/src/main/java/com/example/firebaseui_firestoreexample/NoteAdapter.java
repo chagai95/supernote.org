@@ -50,7 +50,8 @@ public class NoteAdapter extends FirestoreRecyclerAdapter<Note, NoteAdapter.Note
             DocumentSnapshot docSnapshot = getSnapshots().getSnapshot(i);
             Note note = docSnapshot.toObject(Note.class);
             DocumentReference documentReference = docSnapshot.getReference();
-            MyApp.allNotesOfflineNoteData.put(documentReference.getId(), new OfflineNoteData(documentReference));
+            if(MyApp.allNotesOfflineNoteData.get(documentReference.getId())==null)
+                MyApp.allNotesOfflineNoteData.put(documentReference.getId(), new OfflineNoteData(documentReference));
             OfflineNoteData offlineNoteData = MyApp.allNotesOfflineNoteData.get(documentReference.getId());
             if(note.isKeepOffline()){
                 ListenerRegistration listenerRegistration = documentReference.addSnapshotListener((documentSnapshot, e) -> {

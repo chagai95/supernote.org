@@ -30,39 +30,39 @@ public class NetworkUtil {
                 return TYPE_WIFI;
             }
 
-            if(activeNetwork.getType() == ConnectivityManager.TYPE_MOBILE){
+            /*if(activeNetwork.getType() == ConnectivityManager.TYPE_MOBILE){
                 TelephonyManager telephonyManager = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
 
                 networkType = Objects.requireNonNull(telephonyManager).getNetworkType();
 
-                if ((Objects.requireNonNull(telephonyManager).getNetworkType() == TelephonyManager.NETWORK_TYPE_HSDPA)) Toast.makeText(context, "3G enabled", Toast.LENGTH_SHORT).show();
-                else if ((telephonyManager.getNetworkType() == TelephonyManager.NETWORK_TYPE_HSPAP)) Toast.makeText(context, "4G enabled", Toast.LENGTH_SHORT).show();
-                else if ((telephonyManager.getNetworkType() == TelephonyManager.NETWORK_TYPE_EDGE)) Toast.makeText(context, "2G enabled", Toast.LENGTH_SHORT).show();
-                else if ((telephonyManager.getNetworkType() == TelephonyManager.NETWORK_TYPE_LTE)) Toast.makeText(context, "LTE enabled", Toast.LENGTH_SHORT).show();
+                if ((networkType == TelephonyManager.NETWORK_TYPE_HSDPA)) Toast.makeText(context, "3G enabled", Toast.LENGTH_SHORT).show();
+                else if ((networkType == TelephonyManager.NETWORK_TYPE_HSPAP)) Toast.makeText(context, "4G enabled", Toast.LENGTH_SHORT).show();
+                else if ((networkType == TelephonyManager.NETWORK_TYPE_EDGE)) Toast.makeText(context, "2G enabled", Toast.LENGTH_SHORT).show();
+                else if ((networkType == TelephonyManager.NETWORK_TYPE_LTE)) Toast.makeText(context, "LTE enabled", Toast.LENGTH_SHORT).show();
                 else Toast.makeText(context, "unknown network: "+ (Objects.requireNonNull(telephonyManager).getNetworkType()), Toast.LENGTH_SHORT).show();
 
-                if ((telephonyManager.getNetworkType() == TelephonyManager.NETWORK_TYPE_1xRTT)   )Toast.makeText(context, "NETWORK_TYPE_1xRTT = 7", Toast.LENGTH_SHORT).show();
-                if ((telephonyManager.getNetworkType() == TelephonyManager.NETWORK_TYPE_CDMA )   )Toast.makeText(context, "NETWORK_TYPE_CDMA = 4;", Toast.LENGTH_SHORT).show();
-                if ((telephonyManager.getNetworkType() == TelephonyManager.NETWORK_TYPE_EDGE )   )Toast.makeText(context, "NETWORK_TYPE_EDGE = 2;", Toast.LENGTH_SHORT).show();
-                if ((telephonyManager.getNetworkType() == TelephonyManager.NETWORK_TYPE_EHRPD)   )Toast.makeText(context, "NETWORK_TYPE_EHRPD = 1", Toast.LENGTH_SHORT).show();
-                if ((telephonyManager.getNetworkType() == TelephonyManager.NETWORK_TYPE_EVDO_0 ) )Toast.makeText(context, "NETWORK_TYPE_EVDO_0 = ", Toast.LENGTH_SHORT).show();
-                if ((telephonyManager.getNetworkType() == TelephonyManager.NETWORK_TYPE_EVDO_A)  )Toast.makeText(context, "NETWORK_TYPE_EVDO_A = ", Toast.LENGTH_SHORT).show();
-                if ((telephonyManager.getNetworkType() == TelephonyManager.NETWORK_TYPE_EVDO_B)  )Toast.makeText(context, "NETWORK_TYPE_EVDO_B = ", Toast.LENGTH_SHORT).show();
-                if ((telephonyManager.getNetworkType() == TelephonyManager.NETWORK_TYPE_GPRS )   )Toast.makeText(context, "NETWORK_TYPE_GPRS = 1;", Toast.LENGTH_SHORT).show();
-                if ((telephonyManager.getNetworkType() == TelephonyManager.NETWORK_TYPE_GSM )    )Toast.makeText(context, "NETWORK_TYPE_GSM = 16;", Toast.LENGTH_SHORT).show();
-                if ((telephonyManager.getNetworkType() == TelephonyManager.NETWORK_TYPE_HSDPA)   )Toast.makeText(context, "NETWORK_TYPE_HSDPA = 8", Toast.LENGTH_SHORT).show();
-                if ((telephonyManager.getNetworkType() == TelephonyManager.NETWORK_TYPE_HSPA )   )Toast.makeText(context, "NETWORK_TYPE_HSPA = 10", Toast.LENGTH_SHORT).show();
-                if ((telephonyManager.getNetworkType() == TelephonyManager.NETWORK_TYPE_HSPAP)   )Toast.makeText(context, "NETWORK_TYPE_HSPAP = 1", Toast.LENGTH_SHORT).show();
-                if ((telephonyManager.getNetworkType() == TelephonyManager.NETWORK_TYPE_HSUPA)   )Toast.makeText(context, "NETWORK_TYPE_HSUPA = 9", Toast.LENGTH_SHORT).show();
-                if ((telephonyManager.getNetworkType() == TelephonyManager.NETWORK_TYPE_IDEN )   )Toast.makeText(context, "NETWORK_TYPE_IDEN = 11", Toast.LENGTH_SHORT).show();
-                if ((telephonyManager.getNetworkType() == TelephonyManager.NETWORK_TYPE_IWLAN)   )Toast.makeText(context, "NETWORK_TYPE_IWLAN = 1", Toast.LENGTH_SHORT).show();
-                if ((telephonyManager.getNetworkType() == TelephonyManager.NETWORK_TYPE_LTE )    )Toast.makeText(context, "NETWORK_TYPE_LTE = 13;", Toast.LENGTH_SHORT).show();
-//                if ((telephonyManager.getNetworkType() == TelephonyManager.NETWORK_TYPE_NR )     )Toast.makeText(context, "NETWORK_TYPE_NR = 20;", Toast.LENGTH_SHORT).show();
-                if ((telephonyManager.getNetworkType() == TelephonyManager.NETWORK_TYPE_TD_SCDMA))Toast.makeText(context, "NETWORK_TYPE_TD_SCDMA ", Toast.LENGTH_SHORT).show();
-                if ((telephonyManager.getNetworkType() == TelephonyManager.NETWORK_TYPE_UMTS )   )Toast.makeText(context, "NETWORK_TYPE_UMTS = 3;", Toast.LENGTH_SHORT).show();
-                if ((telephonyManager.getNetworkType() == TelephonyManager.NETWORK_TYPE_UNKNOWN ))Toast.makeText(context, "NETWORK_TYPE_UNKNOWN =", Toast.LENGTH_SHORT).show();
+                if ((networkType == TelephonyManager.NETWORK_TYPE_1xRTT)   )Toast.makeText(context, "NETWORK_TYPE_1xRTT = 7", Toast.LENGTH_SHORT).show();
+                if ((networkType == TelephonyManager.NETWORK_TYPE_CDMA )   )Toast.makeText(context, "NETWORK_TYPE_CDMA = 4;", Toast.LENGTH_SHORT).show();
+                if ((networkType == TelephonyManager.NETWORK_TYPE_EDGE )   )Toast.makeText(context, "NETWORK_TYPE_EDGE = 2;", Toast.LENGTH_SHORT).show();
+                if ((networkType == TelephonyManager.NETWORK_TYPE_EHRPD)   )Toast.makeText(context, "NETWORK_TYPE_EHRPD = 1", Toast.LENGTH_SHORT).show();
+                if ((networkType == TelephonyManager.NETWORK_TYPE_EVDO_0 ) )Toast.makeText(context, "NETWORK_TYPE_EVDO_0 = ", Toast.LENGTH_SHORT).show();
+                if ((networkType == TelephonyManager.NETWORK_TYPE_EVDO_A)  )Toast.makeText(context, "NETWORK_TYPE_EVDO_A = ", Toast.LENGTH_SHORT).show();
+                if ((networkType == TelephonyManager.NETWORK_TYPE_EVDO_B)  )Toast.makeText(context, "NETWORK_TYPE_EVDO_B = ", Toast.LENGTH_SHORT).show();
+                if ((networkType == TelephonyManager.NETWORK_TYPE_GPRS )   )Toast.makeText(context, "NETWORK_TYPE_GPRS = 1;", Toast.LENGTH_SHORT).show();
+                if ((networkType == TelephonyManager.NETWORK_TYPE_GSM )    )Toast.makeText(context, "NETWORK_TYPE_GSM = 16;", Toast.LENGTH_SHORT).show();
+                if ((networkType == TelephonyManager.NETWORK_TYPE_HSDPA)   )Toast.makeText(context, "NETWORK_TYPE_HSDPA = 8", Toast.LENGTH_SHORT).show();
+                if ((networkType == TelephonyManager.NETWORK_TYPE_HSPA )   )Toast.makeText(context, "NETWORK_TYPE_HSPA = 10", Toast.LENGTH_SHORT).show();
+                if ((networkType == TelephonyManager.NETWORK_TYPE_HSPAP)   )Toast.makeText(context, "NETWORK_TYPE_HSPAP = 1", Toast.LENGTH_SHORT).show();
+                if ((networkType == TelephonyManager.NETWORK_TYPE_HSUPA)   )Toast.makeText(context, "NETWORK_TYPE_HSUPA = 9", Toast.LENGTH_SHORT).show();
+                if ((networkType == TelephonyManager.NETWORK_TYPE_IDEN )   )Toast.makeText(context, "NETWORK_TYPE_IDEN = 11", Toast.LENGTH_SHORT).show();
+                if ((networkType == TelephonyManager.NETWORK_TYPE_IWLAN)   )Toast.makeText(context, "NETWORK_TYPE_IWLAN = 1", Toast.LENGTH_SHORT).show();
+                if ((networkType == TelephonyManager.NETWORK_TYPE_LTE )    )Toast.makeText(context, "NETWORK_TYPE_LTE = 13;", Toast.LENGTH_SHORT).show();
+//                if ((networkType == TelephonyManager.NETWORK_TYPE_NR )     )Toast.makeText(context, "NETWORK_TYPE_NR = 20;", Toast.LENGTH_SHORT).show();
+                if ((networkType == TelephonyManager.NETWORK_TYPE_TD_SCDMA))Toast.makeText(context, "NETWORK_TYPE_TD_SCDMA ", Toast.LENGTH_SHORT).show();
+                if ((networkType == TelephonyManager.NETWORK_TYPE_UMTS )   )Toast.makeText(context, "NETWORK_TYPE_UMTS = 3;", Toast.LENGTH_SHORT).show();
+                if ((networkType == TelephonyManager.NETWORK_TYPE_UNKNOWN ))Toast.makeText(context, "NETWORK_TYPE_UNKNOWN =", Toast.LENGTH_SHORT).show();
                 return TYPE_MOBILE;
-            }
+            }*/
         }
         return TYPE_NOT_CONNECTED;
     }

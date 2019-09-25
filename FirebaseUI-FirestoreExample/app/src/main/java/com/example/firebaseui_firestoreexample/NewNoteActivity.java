@@ -1,8 +1,6 @@
 package com.example.firebaseui_firestoreexample;
 
-import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
-
+import android.content.res.Resources;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -11,20 +9,32 @@ import android.widget.EditText;
 import android.widget.NumberPicker;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
+
+import com.example.firebaseui_firestoreexample.utils.MyApp;
+import com.example.firebaseui_firestoreexample.utils.OfflineNoteData;
+import com.example.firebaseui_firestoreexample.utils.TrafficLight;
+import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.CollectionReference;
+import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FirebaseFirestore;
 
+import java.util.Date;
 import java.util.Objects;
 
-public class NewNoteActivity extends AppCompatActivity {
+public class NewNoteActivity extends MyActivity {
     private EditText editTextTitle;
     private EditText editTextDescription;
     private NumberPicker numberPickerPriority;
+
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_new_note);
+        onCreateCalled = true;
+
 
         Objects.requireNonNull(getSupportActionBar()).setHomeAsUpIndicator(R.drawable.ic_close); // added Objects.requireNonNull to avoid warning
         setTitle("Add note");
@@ -67,10 +77,45 @@ public class NewNoteActivity extends AppCompatActivity {
             return;
         }
 
-        CollectionReference notebookRef = FirebaseFirestore.getInstance()
-                .collection("Notebook");
-        notebookRef.add(new Note(title, description, priority));
+        CollectionReference notesCollRef = FirebaseFirestore.getInstance()
+                .collection("notes");
+        notesCollRef.add(new Note(title, description, priority,new Timestamp(new Date()))).addOnCompleteListener(task -> {
+            if(task.isSuccessful()){
+                DocumentReference documentReference = task.getResult();
+                assert documentReference != null;
+                MyApp.allNotesOfflineNoteData.put(documentReference.getId(), new OfflineNoteData(documentReference));
+            }
+        });
         Toast.makeText(this, "Note added", Toast.LENGTH_SHORT).show();
         finish();
+    }
+
+    boolean onCreateCalled;
+    private TrafficLight lastTrafficLightState;
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        onCreateCalled = false;
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        MyApp.activityNewNoteResumed();
+        if (!onCreateCalled && MyApp.lastTrafficLightState != lastTrafficLightState)
+            recreate();
+    }
+
+    @Override
+    public Resources.Theme getTheme() {
+        super.setLastTrafficLightState(lastTrafficLightState);
+        Resources.Theme theme = super.getTrafficLightTheme();
+        lastTrafficLightState = super.getLastTrafficLightState();
+        return theme;
+    }
+
+    boolean isNetworkAvailable() {
+        return super.isNetworkAvailable();
     }
 }

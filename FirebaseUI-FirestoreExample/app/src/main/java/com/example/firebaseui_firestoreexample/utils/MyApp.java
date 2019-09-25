@@ -8,6 +8,7 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -24,19 +25,16 @@ import android.util.Log;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.core.app.TaskStackBuilder;
 
-import com.example.firebaseui_firestoreexample.EditNoteActivity;
 import com.example.firebaseui_firestoreexample.LocationReminder;
 import com.example.firebaseui_firestoreexample.MainActivity;
 import com.example.firebaseui_firestoreexample.MyBroadcastReceiver;
-import com.example.firebaseui_firestoreexample.NotificationHelper;
-import com.example.firebaseui_firestoreexample.R;
 import com.example.firebaseui_firestoreexample.TimeReminder;
 import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreSettings;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
@@ -48,6 +46,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.Random;
+import java.util.UUID;
 
 public class MyApp extends Application {
     private static MyApp firstInstance;
@@ -57,14 +56,15 @@ public class MyApp extends Application {
     public static HashMap<String, OfflineNoteData> allNotesOfflineNoteData;
     public static HashMap<String, DocumentReference> timeReminders;
     public static HashMap<String, DocumentReference> locationReminders;
-    private static boolean activityVisible;
+    private static boolean activityMainVisible;
+    private static boolean activityNewNoteVisible;
     private static boolean activityEditNoteVisible;
     private static boolean backUpFailed;
     public static boolean appStarted;
     //    makeText(c, "might not be up to date last updated:", LENGTH_SHORT).show();
     FirebaseFirestore db;
     public static DocumentReference forceStop;
-    public static boolean appInternInternetOffToggle;
+    public static boolean internetDisabledInternally;
     public static boolean autoInternInternetOffWhenE;
     public static TrafficLight lastTrafficLightState;
 
@@ -78,7 +78,7 @@ public class MyApp extends Application {
         totalTime = 0;
         backUpFailed = false;
         autoInternInternetOffWhenE = false;
-        appInternInternetOffToggle = false;
+        internetDisabledInternally = false;
         appStarted = false;
         uncaughtExceptionHandler = Thread.getDefaultUncaughtExceptionHandler();
         timeReminders = new HashMap<>();
@@ -96,7 +96,7 @@ public class MyApp extends Application {
             if (task.isSuccessful()) {
                 if ((boolean) Objects.requireNonNull(Objects.requireNonNull(task.getResult()).getData()).get("startAppOffline")) {
                     db.disableNetwork();
-                    MyApp.appInternInternetOffToggle = true;
+                    MyApp.internetDisabledInternally = true;
                     new Thread(() -> {
                         try {
                             TimeUnit.SECONDS.sleep(4);
@@ -203,16 +203,24 @@ public class MyApp extends Application {
     }
 
 
-    public static boolean isActivityVisible() {
-        return activityVisible;
+    public static boolean isActivityNewNoteVisible() {
+        return activityNewNoteVisible;
     }
 
-    public static void activityResumed() {
-        activityVisible = true;
+    public static void activityNewNoteResumed() {
+        activityNewNoteVisible = true;
+    }
+
+    public static boolean isActivityMainVisible() {
+        return activityMainVisible;
+    }
+
+    public static void activityMainResumed() {
+        activityMainVisible = true;
     }
 
     public static void activityStopped() {
-        activityVisible = false;
+        activityMainVisible = false;
     }
 
     public static boolean isActivityEditNoteVisible() {
@@ -236,7 +244,7 @@ public class MyApp extends Application {
     }
 
     public static void loadToCache() {
-        FirebaseFirestore.getInstance().collection("Notebook").whereEqualTo("loadToCache", true)
+        FirebaseFirestore.getInstance().collection("notes").whereEqualTo("loadToCache", true)
                 .get(Source.SERVER).addOnCompleteListener(task -> backUpFailed = !task.isSuccessful());
         FirebaseFirestore.getInstance().collectionGroup("Reminders").whereGreaterThanOrEqualTo("timestamp", new Timestamp(new Date()))
                 .whereLessThanOrEqualTo("timestamp", new Timestamp(getUntilWhen()))
@@ -367,6 +375,32 @@ public class MyApp extends Application {
         Objects.requireNonNull(alarmManager).set(AlarmManager.RTC_WAKEUP, Objects.requireNonNull(timeReminder).getTimestamp().toDate().getTime(), pendingIntent);
 //            }
 
+    }
+
+    private static String uniqueID = null;
+    private static final String PREF_UNIQUE_ID = "PREF_UNIQUE_ID";
+
+    public synchronized static String getDeviceID(Context context) {
+        if (uniqueID == null) {
+            SharedPreferences sharedPrefs = context.getSharedPreferences(
+                    PREF_UNIQUE_ID, Context.MODE_PRIVATE);
+            uniqueID = sharedPrefs.getString(PREF_UNIQUE_ID, null);
+            if (uniqueID == null) {
+                uniqueID = UUID.randomUUID().toString();
+                SharedPreferences.Editor editor = sharedPrefs.edit();
+                editor.putString(PREF_UNIQUE_ID, uniqueID);
+                editor.apply();
+                registerNewDevice(uniqueID);
+            }
+        }
+        return uniqueID;
+    }
+
+    private static void registerNewDevice(String uniqueID) {
+        FirebaseFirestore.getInstance().collection("utils").document("devices")
+        .update("id's", FieldValue.arrayUnion(uniqueID));
+        FirebaseFirestore.getInstance().collection("utils").document("devices")
+        .update("names", FieldValue.arrayUnion(uniqueID));
     }
 
     // handler listener

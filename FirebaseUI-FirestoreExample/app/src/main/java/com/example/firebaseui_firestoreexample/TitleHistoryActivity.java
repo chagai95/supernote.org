@@ -15,6 +15,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.firebaseui_firestoreexample.utils.MyApp;
+import com.example.firebaseui_firestoreexample.utils.OfflineNoteData;
 import com.example.firebaseui_firestoreexample.utils.RecyclerItemClickListener;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
@@ -42,9 +43,9 @@ public class TitleHistoryActivity extends AppCompatActivity {
 
         noteHistoryList = new ArrayList<>();
 
-        documentRef = FirebaseFirestore.getInstance()
-                .collection("Notebook")
-                .document(Objects.requireNonNull(getIntent().getStringExtra("noteID")));  // added Objects.requireNonNull to avoid warning
+        OfflineNoteData offlineNoteData = MyApp.allNotesOfflineNoteData.get(getIntent().getStringExtra("noteID"));
+        assert offlineNoteData != null;
+        documentRef = offlineNoteData.getDocumentReference();
 
         documentRef.get().addOnSuccessListener(documentSnapshot -> {
             Note note = documentSnapshot.toObject(Note.class);

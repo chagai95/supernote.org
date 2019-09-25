@@ -13,7 +13,6 @@ import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.Objects;
-import java.util.concurrent.FutureTask;
 
 public class SettingsActivity extends AppCompatActivity {
     boolean startAppOffline;
@@ -31,7 +30,7 @@ public class SettingsActivity extends AppCompatActivity {
             MyApp.lastTrafficLightState = TrafficLight.UNKNOWN;
             int status = NetworkUtil.getConnectivityStatusString(this);
             if (NetworkUtil.networkType == TelephonyManager.NETWORK_TYPE_EDGE && status == NetworkUtil.NETWORK_STATUS_MOBILE)
-                if (MyApp.autoInternInternetOffWhenE) MyApp.appInternInternetOffToggle = true;
+                if (MyApp.autoInternInternetOffWhenE) MyApp.internetDisabledInternally = true;
         });
 
         ToggleButton toggleButton2 = findViewById(R.id.simpleToggleButton2);

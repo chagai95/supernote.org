@@ -6,15 +6,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
-import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.os.Process;
-import android.telephony.TelephonyManager;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -27,7 +24,6 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.fragment.app.DialogFragment;
 import androidx.recyclerview.widget.ItemTouchHelper;
@@ -36,7 +32,6 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.example.firebaseui_firestoreexample.utils.MyApp;
-import com.example.firebaseui_firestoreexample.utils.NetworkUtil;
 import com.example.firebaseui_firestoreexample.utils.TrafficLight;
 import com.firebase.ui.firestore.FirestoreRecyclerOptions;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -55,7 +50,7 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.TimeUnit;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends MyActivity {
 
 //    Intent mServiceIntent;
 //    private SensorService mSensorService;
@@ -94,7 +89,7 @@ public class MainActivity extends AppCompatActivity {
             }
             return;
         }
-        else MyApp.setTelephonyListener(c);
+//        else MyApp.setTelephonyListener(c);
 
 
 
@@ -115,7 +110,7 @@ public class MainActivity extends AppCompatActivity {
                 if (task.isSuccessful()) {
                     if ((boolean) Objects.requireNonNull(Objects.requireNonNull(task.getResult()).getData()).get("startAppOffline")) {
                         db.disableNetwork();
-                        MyApp.appInternInternetOffToggle = true;
+                        MyApp.internetDisabledInternally = true;
                         MyApp.appStarted = true;
                         recreate();
                     }
@@ -164,7 +159,7 @@ public class MainActivity extends AppCompatActivity {
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         switch (requestCode) {
             case 10:
-                MyApp.setTelephonyListener(c);
+//                MyApp.setTelephonyListener(c);
 //                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
 //                }
         }
@@ -202,7 +197,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setUpRecyclerView() {
-        Query query = db.collection("Notebook").orderBy("priority", Query.Direction.DESCENDING);
+        Query query = db.collection("notes").orderBy("priority", Query.Direction.DESCENDING);
 
         FirestoreRecyclerOptions<Note> options = new FirestoreRecyclerOptions.Builder<Note>()
                 .setQuery(query, Note.class)
@@ -260,49 +255,21 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        MyApp.activityResumed();
+        MyApp.activityMainResumed();
         if (!onCreateCalled && MyApp.lastTrafficLightState != lastTrafficLightState)
             recreate();
     }
 
     @Override
     public Resources.Theme getTheme() {
-        Resources.Theme theme = super.getTheme();
-//        skip this for now because it does not work. - tried to check if there can be a connection with google established.
-//        new Online().run();
-        if (MyApp.appInternInternetOffToggle) {
-            theme.applyStyle(R.style.InternOffline, true);
-            MyApp.lastTrafficLightState = TrafficLight.INTERN_OFFLINE;
-            lastTrafficLightState = TrafficLight.INTERN_OFFLINE;
-        } else if (isNetworkAvailable()) {
-            if (NetworkUtil.networkType == TelephonyManager.NETWORK_TYPE_EDGE) {
-                theme.applyStyle(R.style.MaybeConnected, true);
-                MyApp.lastTrafficLightState = TrafficLight.MAYBE_CONNECTED;
-                lastTrafficLightState = TrafficLight.MAYBE_CONNECTED;
-            } else {
-                theme.applyStyle(R.style.Online, true);
-                MyApp.lastTrafficLightState = TrafficLight.ONLINE;
-                lastTrafficLightState = TrafficLight.ONLINE;
-            }
-        } else {
-            theme.applyStyle(R.style.Offline, true);
-            MyApp.lastTrafficLightState = TrafficLight.OFFLINE;
-            lastTrafficLightState = TrafficLight.OFFLINE;
-        }
-
+        super.setLastTrafficLightState(lastTrafficLightState);
+        Resources.Theme theme = super.getTrafficLightTheme();
+        lastTrafficLightState = super.getLastTrafficLightState();
         return theme;
     }
 
-    private boolean isNetworkAvailable() {
-        ConnectivityManager manager =
-                (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-        NetworkInfo networkInfo = Objects.requireNonNull(manager).getActiveNetworkInfo();
-        boolean isAvailable = false;
-        if (networkInfo != null && networkInfo.isConnected()) {
-            // Network is present and connected
-            isAvailable = true;
-        }
-        return isAvailable;
+    boolean isNetworkAvailable() {
+        return super.isNetworkAvailable();
     }
 
     @Override
@@ -310,7 +277,7 @@ public class MainActivity extends AppCompatActivity {
         MenuInflater menuInflater = getMenuInflater();
         menuInflater.inflate(R.menu.main_activity_menu, menu);
         MenuItem appInternInternetOffToggleMenuItem = menu.findItem(R.id.app_intern_internet_toggle);
-        if (MyApp.appInternInternetOffToggle)
+        if (MyApp.internetDisabledInternally)
             appInternInternetOffToggleMenuItem.setTitle("activate internet in App");
         else
             appInternInternetOffToggleMenuItem.setTitle("deactivate internet in App");
@@ -330,10 +297,10 @@ public class MainActivity extends AppCompatActivity {
                 reception();
                 return true;
             case R.id.app_intern_internet_toggle:
-                if (MyApp.appInternInternetOffToggle)
+                if (MyApp.internetDisabledInternally)
                     db.enableNetwork();
                 else db.disableNetwork();
-                MyApp.appInternInternetOffToggle = !MyApp.appInternInternetOffToggle;
+                MyApp.internetDisabledInternally = !MyApp.internetDisabledInternally;
                 recreate();
                 return true;
             case R.id.settings:
