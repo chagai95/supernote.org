@@ -12,10 +12,13 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.widget.ArrayAdapter;
+import android.widget.AutoCompleteTextView;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.NumberPicker;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
@@ -24,6 +27,7 @@ import androidx.fragment.app.DialogFragment;
 import com.example.firebaseui_firestoreexample.utils.MyApp;
 import com.example.firebaseui_firestoreexample.utils.OfflineNoteData;
 import com.example.firebaseui_firestoreexample.utils.TrafficLight;
+import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
@@ -31,6 +35,7 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.GeoPoint;
 import com.google.firebase.firestore.ListenerRegistration;
 import com.google.firebase.firestore.Query;
+import com.google.firebase.firestore.QuerySnapshot;
 import com.google.firebase.firestore.Source;
 
 import java.util.ArrayList;
@@ -59,7 +64,10 @@ public class EditNoteActivity extends MyActivity {
     boolean onCreateCalledForTextWatcher;
     private boolean keepOffline;
     private TrafficLight lastTrafficLightState;
-    private FirebaseFirestore db;
+    private FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+    AlertDialog alertDialogForSharingWithAnotherUser;
+
 //    private int cursor;
 //    private boolean changeCursorPositionBack;
 
@@ -69,7 +77,7 @@ public class EditNoteActivity extends MyActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_edit_note);
 
-        db = FirebaseFirestore.getInstance();
+        onCreateCalled = true;
 
         Objects.requireNonNull(getSupportActionBar()).setHomeAsUpIndicator(R.drawable.ic_close); // added Objects.requireNonNull to avoid warning
         setTitle("Edit note");
@@ -77,10 +85,20 @@ public class EditNoteActivity extends MyActivity {
         editTextTitle = findViewById(R.id.edit_text_title);
         editTextDescription = findViewById(R.id.edit_text_description);
         numberPickerPriority = findViewById(R.id.number_picker_priority);
+
         noteID = Objects.requireNonNull(getIntent().getStringExtra("noteID"));
         offlineNoteData = Objects.requireNonNull(MyApp.allNotesOfflineNoteData.get(noteID));
         documentRef = offlineNoteData.getDocumentReference();
-        onCreateCalled = true;
+
+        textWatchers();
+
+
+        numberPickerPriority.setMinValue(1);
+        numberPickerPriority.setMaxValue(10);
+
+    }
+
+    private void textWatchers() {
         onCreateCalledForTextWatcher = true;
 
 
@@ -140,7 +158,7 @@ public class EditNoteActivity extends MyActivity {
                                 Note note = Objects.requireNonNull(task.getResult()).toObject(Note.class);
                                 assert note != null;
                                 offlineNoteData.setNote(note); // saving to enable quicker loading or pre-loading.
-                                documentRef.collection(MyApp.getDeviceID(c)).add(note.newNoteVersion());
+                                documentRef.collection(MyApp.getDeviceID(c) + MyApp.uid).add(note.newNoteVersion());
                             }
                         });
 
@@ -168,10 +186,6 @@ public class EditNoteActivity extends MyActivity {
             }
         };
         editTextDescription.addTextChangedListener(textWatcherDescription);
-
-        numberPickerPriority.setMinValue(1);
-        numberPickerPriority.setMaxValue(10);
-
     }
 
     private void unsuccessfulUpload(Exception e) {
@@ -236,6 +250,9 @@ public class EditNoteActivity extends MyActivity {
             case R.id.action_add_reminder:
                 showDatePicker("", "");
                 return true;
+            case R.id.share_with_another_user:
+                shareWithAnotherUser();
+                return true;
             case R.id.location_reminder:
                 createAlertForLocationReminder();
                 return true;
@@ -255,6 +272,75 @@ public class EditNoteActivity extends MyActivity {
                 return super.onOptionsItemSelected(item);
         }
     }
+
+    private void shareWithAnotherUser() {
+        AlertDialog.Builder alert = new AlertDialog.Builder(c);
+        alert.setTitle("Share note");
+        if (!isNetworkAvailable() || MyApp.internetDisabledInternally)
+            alert.setMessage("no internet - possibly showing only users from friends list");
+
+        final AutoCompleteTextView addUser = new AutoCompleteTextView(c);
+        addUser.setHint("type a username to share with a user");
+        addUser.setCompletionHint("select a username");
+        alert.setView(addUser);
+
+        CollectionReference userCollRef;
+        ArrayList<String> usernameSuggestions;
+        usernameSuggestions = new ArrayList<>();
+        userCollRef = db.collection("users");
+        userCollRef.get().addOnCompleteListener(task -> {
+            if (task.isSuccessful()) {
+                QuerySnapshot querySnapshot = task.getResult();
+                assert querySnapshot != null;
+                for (DocumentSnapshot documentSnapshot :
+                        querySnapshot.getDocuments()) {
+                    CloudUser cloudUser = documentSnapshot.toObject(CloudUser.class);
+                    assert cloudUser != null;
+                    usernameSuggestions.add(cloudUser.getUsername());
+                }
+                usernameSuggestions.remove(MyApp.username);
+            }
+        });
+
+        MyApp.userDocumentRef.get().addOnCompleteListener(task -> {
+           if(task.isSuccessful()){
+               DocumentSnapshot documentSnapshot = task.getResult();
+               assert documentSnapshot != null;
+               CloudUser cloudUser = documentSnapshot.toObject(CloudUser.class);
+               assert cloudUser != null;
+               for (String friend :
+                       cloudUser.getFriends()) {
+                   if(!usernameSuggestions.contains(friend))
+                       usernameSuggestions.add(friend);
+               }
+           }
+        });
+
+
+
+
+
+
+
+
+
+
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, usernameSuggestions);
+        addUser.setAdapter(adapter);
+        addUser.setOnItemClickListener((parent, view, position, id) -> {
+            String newUser = (String) parent.getItemAtPosition(position);
+            documentRef.update(
+                    "shared", FieldValue.arrayUnion(newUser))
+                    .addOnSuccessListener(aVoid -> {
+                        Toast.makeText(this, "note shared with " + newUser, Toast.LENGTH_LONG).show();
+                        addUser.setText("");
+                        alertDialogForSharingWithAnotherUser.cancel();
+                    });
+        });
+
+        alertDialogForSharingWithAnotherUser = alert.show();
+    }
+
 
     public void showDatePicker(String number, String message) {
         DialogFragment newFragment = new MyDatePickerFragment(documentRef, this, number, message);
@@ -443,7 +529,7 @@ public class EditNoteActivity extends MyActivity {
 //                        and we can set the listener directly.
                         if (offlineNoteData.getLastKnownNoteHistoryListSize() != -1) {
 //                            getting the unique device history list - this has no use online so we can just call it from the cache.
-                            documentRef.collection(MyApp.getDeviceID(c)).orderBy("created", Query.Direction.ASCENDING).get(Source.CACHE).addOnCompleteListener(taskOfflineHistory -> {
+                            documentRef.collection(MyApp.getDeviceID(c) + MyApp.uid).orderBy("created", Query.Direction.ASCENDING).get(Source.CACHE).addOnCompleteListener(taskOfflineHistory -> {
                                 if (taskOfflineHistory.isSuccessful()) {
                                     ArrayList<DocumentSnapshot> deviceHistoryList = (ArrayList<DocumentSnapshot>) Objects.requireNonNull(taskOfflineHistory.getResult()).getDocuments();
 //                                    if the size of the main note history list has changed we want to check if the title is not coincidentally the same and then
@@ -533,13 +619,13 @@ public class EditNoteActivity extends MyActivity {
                     // check if the data in the server has newer date than the one in the editable and force it to be shown
                     // this line should go off when the internet comes back on.
                     if (!documentSnapshot.getMetadata().hasPendingWrites()) {
-                            editTextTitle.setTextColor(Color.BLACK);
+                        editTextTitle.setTextColor(Color.BLACK);
                         if (!note.getTitle().equals(editTextTitle.getText().toString())) {
                             editTextTitle.removeTextChangedListener(textWatcherTitle);
                             editTextTitle.setText(note.getTitle());
                             editTextTitle.addTextChangedListener(textWatcherTitle);
                         }
-                            editTextDescription.setTextColor(Color.BLACK);
+                        editTextDescription.setTextColor(Color.BLACK);
                         if (!note.getDescription().equals(editTextDescription.toString())) {
                             editTextDescription.removeTextChangedListener(textWatcherDescription);
                             editTextDescription.setText(note.getDescription());

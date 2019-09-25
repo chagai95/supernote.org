@@ -12,4 +12,7 @@
     <string name="enable">Enable</string>
     <string name="sendWhatsapp">send</string>
     <string name="snoozeWhatsapp">snooze</string>
+    <string name="username_text_explaining_what_to_do">change username here:</string>
+    <string name="current_username" />
+    <string name="share_with_another_user">share with another user</string>
 </resources>

@@ -4,6 +4,16 @@
         android:title="speed_test"/>
     <item android:id="@+id/app_intern_internet_toggle"
         android:title="switch intern internet state"/>
+    <item android:id="@+id/login"
+        android:title="login"/>
+    <item android:id="@+id/logout"
+        android:title="logout"/>
+    <item android:id="@+id/trash"
+        android:title="trash"/>
+    <item android:id="@+id/shared"
+        android:title="shared"/>
+    <item android:id="@+id/allNotes"
+        android:title="allNotes"/>
     <item android:id="@+id/settings"
         android:title="settings"/>
     <item android:id="@+id/report_bug"

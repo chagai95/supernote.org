@@ -74,6 +74,16 @@ public class NoteAdapter extends FirestoreRecyclerAdapter<Note, NoteAdapter.Note
         getSnapshots().getSnapshot(position).getReference().delete();
     }
 
+    void trashItem(int position) {
+        getSnapshots().getSnapshot(position).getReference().update("trash",true);
+    }
+
+    void untrashItem(int position) {
+        getSnapshots().getSnapshot(position).getReference().update("trash",false);
+    }
+
+
+
     class NoteHolder extends RecyclerView.ViewHolder {
         TextView textViewTitle;
         TextView textViewDescription;

@@ -24,6 +24,12 @@
         app:showAsAction="never" />
 
     <item
+        android:id="@+id/share_with_another_user"
+        android:orderInCategory="100"
+        android:title="@string/share_with_another_user"
+        app:showAsAction="never" />
+
+    <item
         android:id="@+id/location_reminder"
         android:orderInCategory="100"
         android:title="location reminder"

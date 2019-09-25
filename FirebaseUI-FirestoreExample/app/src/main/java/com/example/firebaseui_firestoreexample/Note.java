@@ -11,27 +11,33 @@ public class Note {
     private String description;
     private int priority;
     private ArrayList<String> history;
+    private ArrayList<String> shared;
     private boolean keepOffline;
     private boolean loadToCache;
+    private boolean trash;
     private Timestamp created;
+    private String creator;
 
 
     @SuppressWarnings("unused")
     public Note(){
         // empty constructor needed for firebase
     }
-    public Note(String title, String description, int priority,Timestamp created) {
+    public Note(String title, String description, int priority, Timestamp created, String creator) {
         this.title = title;
         this.description = description;
         this.priority = priority;
         this.created = created;
+        this.creator = creator;
         history = new ArrayList<>();
+        shared = new ArrayList<>();
         keepOffline = false;
         loadToCache = false;
+        trash = false;
     }
 
     public Note newNoteVersion(){
-        return new Note(title,description,priority, new Timestamp(new Date()));
+        return new Note(title,description,priority, new Timestamp(new Date()), creator);
     }
 
     public String getTitle() {
@@ -62,4 +68,15 @@ public class Note {
         return loadToCache;
     }
 
+    public String getCreator() {
+        return creator;
+    }
+
+    public ArrayList<String> getShared() {
+        return shared;
+    }
+
+    public boolean isTrash() {
+        return trash;
+    }
 }

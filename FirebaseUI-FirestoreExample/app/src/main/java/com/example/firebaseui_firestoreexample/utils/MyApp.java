@@ -49,9 +49,14 @@ import java.util.Random;
 import java.util.UUID;
 
 public class MyApp extends Application {
+    public static boolean userSkippedLogin;
+    public static String uid;
+    public static String username;
+    public static DocumentReference userDocumentRef;
     private static MyApp firstInstance;
     public static boolean updateFromServer;
-    public static String titleOldVersion;
+    public static String titleOldVersion;// perhaps with an intent?
+    public static String recyclerViewMode;
     public static long totalTime;
     public static HashMap<String, OfflineNoteData> allNotesOfflineNoteData;
     public static HashMap<String, DocumentReference> timeReminders;
@@ -83,6 +88,7 @@ public class MyApp extends Application {
         uncaughtExceptionHandler = Thread.getDefaultUncaughtExceptionHandler();
         timeReminders = new HashMap<>();
         locationReminders = new HashMap<>();
+        recyclerViewMode = "default";
 //        startAppOffline();
 
         // setup handler for uncaught exception
@@ -153,6 +159,7 @@ public class MyApp extends Application {
 //        return firstInstance;
         return firstInstance.getApplicationContext();
     }
+
 
     @Override
     public void onCreate() {

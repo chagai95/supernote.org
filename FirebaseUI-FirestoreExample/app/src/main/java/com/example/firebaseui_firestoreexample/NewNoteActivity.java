@@ -79,7 +79,7 @@ public class NewNoteActivity extends MyActivity {
 
         CollectionReference notesCollRef = FirebaseFirestore.getInstance()
                 .collection("notes");
-        notesCollRef.add(new Note(title, description, priority,new Timestamp(new Date()))).addOnCompleteListener(task -> {
+        notesCollRef.add(new Note(title, description, priority, new Timestamp(new Date()), MyApp.uid)).addOnCompleteListener(task -> {
             if(task.isSuccessful()){
                 DocumentReference documentReference = task.getResult();
                 assert documentReference != null;

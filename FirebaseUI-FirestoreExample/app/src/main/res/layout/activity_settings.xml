@@ -34,6 +34,31 @@
             android:checked="false"
             android:textOff="@string/enable"
             android:textOn="@string/disable" /> <!--text to be displayed whenever toggle button is checked-->
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/username_text_explaining_what_to_do"/>
+
+        <EditText
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:id="@+id/check_username_availability"
+            android:inputType="text"
+            tools:ignore="Autofill,LabelFor" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+           android:id="@+id/currentUsername"/>
+
+        <AutoCompleteTextView
+            android:id="@+id/addFriends"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="type a username to add a friend"
+            android:completionHint="select a username"/>
+
     </LinearLayout>
 
 </LinearLayout>

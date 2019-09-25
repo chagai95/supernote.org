@@ -1,7 +1,6 @@
 package com.example.firebaseui_firestoreexample;
 
 import android.Manifest;
-import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -9,17 +8,13 @@ import android.content.res.Resources;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Message;
 import android.os.Process;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -33,17 +28,15 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.example.firebaseui_firestoreexample.utils.MyApp;
 import com.example.firebaseui_firestoreexample.utils.TrafficLight;
+import com.firebase.ui.auth.AuthUI;
 import com.firebase.ui.firestore.FirestoreRecyclerOptions;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Query;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.net.URLConnection;
-import java.text.DecimalFormat;
 import java.util.Calendar;
 import java.util.Objects;
 import java.util.Timer;
@@ -58,40 +51,31 @@ public class MainActivity extends MyActivity {
 
     FirebaseFirestore db;
     private NoteAdapter adapter;
+    FirebaseUser firebaseUser;
 
     boolean onCreateCalled;
     InternetThread internetThread;
     private TrafficLight lastTrafficLightState;
 
-    private Context c= this;
+    private Context c = this;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        mDecimalFormater = new DecimalFormat("##.##");
-        final SwipeRefreshLayout pullToRefresh = findViewById(R.id.pullToRefresh);
-        pullToRefresh.setOnRefreshListener(() -> {
-            refreshTrafficLight(); // your code
-            pullToRefresh.setRefreshing(false);
-        });
 
-//        first check for permissions
-//        overriding onRequestPermissionsResult and calling the creating telephony listener there if permission is given.
-        if (ActivityCompat.checkSelfPermission(c, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
-            ActivityCompat.checkSelfPermission(c, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                requestPermissions(new String[]{
-                        Manifest.permission.ACCESS_COARSE_LOCATION,
-                        Manifest.permission.ACCESS_FINE_LOCATION,
-                        Manifest.permission.INTERNET}
-                        , 10);
-            }
-            return;
-        }
-//        else MyApp.setTelephonyListener(c);
+        db = FirebaseFirestore.getInstance();
 
+        FirebaseAuth mAuth = FirebaseAuth.getInstance();
+        firebaseUser = mAuth.getCurrentUser();
+        if (firebaseUser == null) {
+            login();
+        } else {
+            saveUserToMyApp();
 
+            disablingInternetIfAnonymousUser();
+
+            swipeToRefresh();
 
 //        code from the article:
 //        mSensorService = new SensorService(this);
@@ -101,9 +85,54 @@ public class MainActivity extends MyActivity {
 //            startService(mServiceIntent);
 //        }
 
-        db = FirebaseFirestore.getInstance();
+            MyApp.getFirstInstance().registerActivityLifecycleCallbacks(new MyActivityLifecycleCallbacks());
 
-        MyApp.getFirstInstance().registerActivityLifecycleCallbacks(new MyActivityLifecycleCallbacks());
+            startAppOffline();
+
+            newNote();
+
+            setUpRecyclerView();
+
+            onCreateCalled = true;
+
+            createCacheLoaderTimerTask();
+
+            new NotificationHelper(this).initNotificationChannels();
+
+//            for testing internet speed.
+//            mDecimalFormatter = new DecimalFormat("##.##");
+
+            reception();
+
+            locationPermission();
+
+        }
+    }
+
+    private void locationPermission() {
+
+//        perhaps better to call in login activity! trying to call at the end of onCreate to avoid unexpected changes whilst waiting for user to accept.
+//        first check for permissions
+//        overriding onRequestPermissionsResult and calling the creating telephony listener there if permission is given.
+        if (ActivityCompat.checkSelfPermission(c, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+                ActivityCompat.checkSelfPermission(c, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                requestPermissions(new String[]{
+                                Manifest.permission.ACCESS_COARSE_LOCATION}
+                        , 10);
+            }
+        }
+//        else MyApp.setTelephonyListener(c);
+
+    }
+
+    private void newNote() {
+        FloatingActionButton buttonAddNote = findViewById(R.id.button_add_note);
+        buttonAddNote.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, NewNoteActivity.class)));
+    }
+
+    private void startAppOffline() {
+        //                probably better to use 2 different booleans one only for the anonymous user a bit repetitive but probably better.
         if (!MyApp.appStarted)
             db.collection("utils").document("startAppOffline")
                     .get().addOnCompleteListener(task -> {
@@ -116,19 +145,43 @@ public class MainActivity extends MyActivity {
                     }
                 }
             });
+    }
 
-        FloatingActionButton buttonAddNote = findViewById(R.id.button_add_note);
-        buttonAddNote.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, NewNoteActivity.class)));
+    private void swipeToRefresh() {
+        final SwipeRefreshLayout pullToRefresh = findViewById(R.id.pullToRefresh);
+        pullToRefresh.setOnRefreshListener(() -> {
+            refreshTrafficLight(); // your code
+            pullToRefresh.setRefreshing(false);
+        });
+    }
 
-        setUpRecyclerView();
+    private void disablingInternetIfAnonymousUser() {
+//            recreating here because the internet state has changed. using MyApp.userSkippedLogin so it only does this once.
+        if (firebaseUser.isAnonymous() && !MyApp.userSkippedLogin) {
+            MyApp.userSkippedLogin = true;
+            MyApp.internetDisabledInternally = true;
+            db.disableNetwork();
+            recreate();
+        }
+    }
 
-        reception();
+    private void saveUserToMyApp() {
+        MyApp.uid = firebaseUser.getUid();
+        MyApp.userDocumentRef = db.collection("users").document(MyApp.uid);
+        MyApp.userDocumentRef.get().addOnCompleteListener(task -> {
+            if (task.isSuccessful()) {
+                DocumentSnapshot documentSnapshot = task.getResult();
+                assert documentSnapshot != null;
+                CloudUser cloudUser = documentSnapshot.toObject(CloudUser.class);
+                assert cloudUser != null;
+                MyApp.username = cloudUser.getUsername();
+            }
+        });
+    }
 
-        onCreateCalled = true;
-
-        createCacheLoaderTimerTask();
-
-        new NotificationHelper(this).initNotificationChannels();
+    private void login() {
+        startActivity(new Intent(MainActivity.this, LoginActivity.class));
+        finish();
     }
 
     private void refreshTrafficLight() {
@@ -157,12 +210,10 @@ public class MainActivity extends MyActivity {
     //could perhaps be deleted.
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        switch (requestCode) {
-            case 10:
-//                MyApp.setTelephonyListener(c);
+        // if (requestCode == 10) {               MyApp.setTelephonyListener(c);
 //                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
 //                }
-        }
+        //      }
     }
 
 //    private boolean isMyServiceRunning() {
@@ -188,17 +239,25 @@ public class MainActivity extends MyActivity {
         super.onDestroy();
     }
 
-    private void reception() {
-        if (isNetworkAvailable()) {
-            internetThread = new InternetThread(this);
-            internetThread.setPriority(Process.THREAD_PRIORITY_BACKGROUND);
-            internetThread.start();
+
+    private void setUpRecyclerView() {
+        switch (MyApp.recyclerViewMode) {
+            case "trash":
+                recyclerViewTrash();
+                break;
+            case "shared":
+                recyclerViewShared();
+                break;
+            case "search":
+                recyclerViewSearch();
+                break;
+            default:
+                recyclerViewAllNotes();
+
         }
     }
 
-    private void setUpRecyclerView() {
-        Query query = db.collection("notes").orderBy("priority", Query.Direction.DESCENDING);
-
+    private void setUpRecyclerViewWithQuery(Query query) {
         FirestoreRecyclerOptions<Note> options = new FirestoreRecyclerOptions.Builder<Note>()
                 .setQuery(query, Note.class)
                 .build();
@@ -220,7 +279,10 @@ public class MainActivity extends MyActivity {
 
             @Override
             public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
-                adapter.deleteItem(viewHolder.getAdapterPosition());
+                if(MyApp.recyclerViewMode.equals("trash"))
+                    adapter.untrashItem(viewHolder.getAdapterPosition());
+                else
+                    adapter.trashItem(viewHolder.getAdapterPosition());
             }
         }).attachToRecyclerView(recyclerView);
 
@@ -233,17 +295,44 @@ public class MainActivity extends MyActivity {
         });
     }
 
+    private void recyclerViewSearch() {
+        Query query = db.collection("notes").whereEqualTo("creator", MyApp.uid);// change this to have the search query.
+
+        setUpRecyclerViewWithQuery(query);
+    }
+
+    private void recyclerViewShared() {
+        Query query = db.collection("notes").whereArrayContains("shared", MyApp.username);
+        setUpRecyclerViewWithQuery(query);
+
+    }
+
+    private void recyclerViewTrash() {
+        Query query = db.collection("notes").whereEqualTo("creator", MyApp.uid).whereEqualTo("trash", true);
+        setUpRecyclerViewWithQuery(query);
+    }
+
+    private void recyclerViewAllNotes() {
+        Query query = db.collection("notes").whereEqualTo("creator", MyApp.uid).whereEqualTo("trash", false);
+        setUpRecyclerViewWithQuery(query);
+    }
+
+
+
     @Override
     protected void onStart() {
         super.onStart();
-        adapter.startListening();
+        if (adapter != null)
+            adapter.startListening();
     }
 
     @Override
     protected void onStop() {
         super.onStop();
-        MyApp.activityStopped();
-        adapter.stopListening();
+        if (adapter != null) {
+            MyApp.activityStopped();
+            adapter.stopListening();
+        }
     }
 
     @Override
@@ -276,11 +365,22 @@ public class MainActivity extends MyActivity {
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater menuInflater = getMenuInflater();
         menuInflater.inflate(R.menu.main_activity_menu, menu);
+
         MenuItem appInternInternetOffToggleMenuItem = menu.findItem(R.id.app_intern_internet_toggle);
+        appInternInternetOffToggleMenuItem.setVisible(!MyApp.userSkippedLogin);
+
+        MenuItem loginMenuItem = menu.findItem(R.id.login);
+        loginMenuItem.setVisible(MyApp.userSkippedLogin);
+
+        MenuItem logoutMenuItem = menu.findItem(R.id.logout);
+        logoutMenuItem.setVisible(!MyApp.userSkippedLogin);
+
+
         if (MyApp.internetDisabledInternally)
             appInternInternetOffToggleMenuItem.setTitle("activate internet in App");
         else
             appInternInternetOffToggleMenuItem.setTitle("deactivate internet in App");
+
         MenuItem reportBug = menu.findItem(R.id.report_bug);
         if (isNetworkAvailable())
             reportBug.setTitle("report bug");
@@ -306,12 +406,38 @@ public class MainActivity extends MyActivity {
             case R.id.settings:
                 startActivity(new Intent(MainActivity.this, SettingsActivity.class));
                 return true;
+            case R.id.login:
+//                deal here with the anonymous user merge with the new user
+                startActivity(new Intent(MainActivity.this, LoginActivity.class));
+                return true;
+            case R.id.logout:
+                logout();
+                return true;
+            case R.id.trash:
+                MyApp.recyclerViewMode = "trash";
+                recreate();
+                return true;
+            case R.id.shared:
+                MyApp.recyclerViewMode = "shared";
+                recreate();
+                return true;
+            case R.id.allNotes:
+                MyApp.recyclerViewMode = "allNotes";
+                recreate();
+                return true;
             case R.id.report_bug:
                 reportBug();
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
         }
+    }
+
+    private void logout() {
+        db.enableNetwork();
+        AuthUI.getInstance()
+                .signOut(this)
+                .addOnCompleteListener(task -> login());
     }
 
     private void reportBug() {
@@ -340,7 +466,7 @@ public class MainActivity extends MyActivity {
         //only works once for some reason
         alert.setPositiveButton("Ok", (dialog, whichButton) -> {
             Log.i("AlertDialog", "TextEntry 2 Entered " + messageEditText.getText().toString());
-            showDatePicker("",messageEditText.getText().toString());
+            showDatePicker("", messageEditText.getText().toString());
         });
 
         alert.setNegativeButton("Cancel", (dialog, whichButton) -> {
@@ -355,7 +481,14 @@ public class MainActivity extends MyActivity {
     }
 
 
-
+    private void reception() {
+        if (isNetworkAvailable()) {
+            internetThread = new InternetThread(this);
+            internetThread.setPriority(Process.THREAD_PRIORITY_BACKGROUND);
+            internetThread.start();
+        }
+    }
+/*
     @SuppressLint("HandlerLeak")
     private final Handler mHandler = new Handler() {
         @Override
@@ -363,7 +496,7 @@ public class MainActivity extends MyActivity {
             switch (msg.what) {
                 case MSG_UPDATE_STATUS:
                     final SpeedInfo info1 = (SpeedInfo) msg.obj;
-                    mTxtSpeed.setText(String.format("0x7f040004", mDecimalFormater.format(info1.kilobits)));
+                    mTxtSpeed.setText(String.format("0x7f040004", mDecimalFormatter.format(info1.kilobits)));
                     // Title progress is in range 0..10000
                     setProgress(100 * msg.arg1);
                     mTxtProgress.setText(String.format("0x7f040005", msg.arg2, EXPECTED_SIZE_IN_BYTES));
@@ -390,9 +523,9 @@ public class MainActivity extends MyActivity {
         }
     };
 
-    /**
-     * Our Slave worker that does actually all the work
-     */
+    *//*
+      Our Slave worker that does actually all the work
+     *//*
     private final Runnable mWorker = new Runnable() {
 
         @Override
@@ -435,7 +568,7 @@ public class MainActivity extends MyActivity {
                 }
 
                 long downloadTime = (System.currentTimeMillis() - start);
-                //Prevent AritchmeticException
+                //Prevent ArithmeticException
                 if (downloadTime == 0) {
                     downloadTime = 1;
                 }
@@ -460,11 +593,11 @@ public class MainActivity extends MyActivity {
         }
     };
 
-    /**
-     * Get Network type from download rate
-     *
-     * @return 0 for Edge and 1 for 3G
-     */
+    *//*
+      Get Network type from download rate
+
+      @return 0 for Edge and 1 for 3G
+     *//*
     private int networkType(final double kbps) {
         int type = 1;//3G
         //Check if its EDGE
@@ -474,14 +607,14 @@ public class MainActivity extends MyActivity {
         return type;
     }
 
-    /**
-     * 1 byte = 0.0078125 kilobits
-     * 1 kilobits = 0.0009765625 megabit
-     *
-     * @param downloadTime in miliseconds
+    *//*
+      1 byte = 0.0078125 kilobits
+      1 kilobits = 0.0009765625 megabit
+
+      @param downloadTime in miliseconds
      * @param bytesIn      number of bytes downloaded
      * @return SpeedInfo containing current speed
-     */
+     *//*
     private SpeedInfo calculate(final long downloadTime, final long bytesIn) {
         SpeedInfo info = new SpeedInfo();
         //from mil to sec
@@ -495,11 +628,11 @@ public class MainActivity extends MyActivity {
         return info;
     }
 
-    /**
-     * Transfer Object
-     *
-     * @author devil
-     */
+    *//*
+      Transfer Object
+
+      @author devil
+     *//*
     private static class SpeedInfo {
         public double kilobits = 0;
         public double megabits = 0;
@@ -528,5 +661,5 @@ public class MainActivity extends MyActivity {
     private final static int UPDATE_THRESHOLD = 300;
 
 
-    private DecimalFormat mDecimalFormater;
+    private DecimalFormat mDecimalFormatter;*/
 }
