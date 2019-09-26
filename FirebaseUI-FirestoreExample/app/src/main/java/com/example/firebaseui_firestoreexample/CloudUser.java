@@ -6,8 +6,9 @@ class CloudUser {
     private String username;
     private ArrayList<String> friends;
 
-    public CloudUser(String username) {
+    CloudUser(String username) {
         this.username = username;
+        friends = new ArrayList<>();
     }
 
     public CloudUser(){

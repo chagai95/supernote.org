@@ -4,23 +4,42 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".LoginActivity"
-    android:orientation="vertical">
+    android:orientation="vertical"
+    tools:context=".LoginActivity">
 
-    <Button
-        android:id="@+id/loginButton"
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/pullToRefreshForLogin"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        tools:layout_editor_absoluteX="323dp"
-        tools:layout_editor_absoluteY="100dp"
-        android:text="login" />
+        android:layout_height="wrap_content">
 
-    <Button
-        android:id="@+id/skipLoginButton"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        tools:layout_editor_absoluteX="323dp"
-        tools:layout_editor_absoluteY="100dp"
-        android:text="skip login" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical">
+
+            <Button
+                android:id="@+id/loginButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="login"
+                tools:layout_editor_absoluteX="323dp"
+                tools:layout_editor_absoluteY="100dp" />
+
+            <Button
+                android:id="@+id/skipLoginButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="skip login"
+                tools:layout_editor_absoluteX="323dp"
+                tools:layout_editor_absoluteY="100dp" />
+
+            <TextView
+                android:id="@+id/goOnlineToLoginExplainingText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/go_online_to_login_explaining_text" />
+        </LinearLayout>
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
 
 </LinearLayout>

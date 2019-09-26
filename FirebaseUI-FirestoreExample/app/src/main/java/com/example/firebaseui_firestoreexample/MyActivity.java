@@ -17,12 +17,13 @@ import java.util.Objects;
 abstract public class MyActivity extends AppCompatActivity {
 
     private TrafficLight lastTrafficLightState;
+    int countGetThemeCalled =0;
 
     Resources.Theme getTrafficLightTheme(){
         Resources.Theme theme = super.getTheme();
 //        skip this for now because it does not work. - tried to check if there can be a connection with google established.
 //        new Online().run();
-
+        countGetThemeCalled++;
         if (MyApp.internetDisabledInternally) {
             theme.applyStyle(R.style.InternOffline, true);
             MyApp.lastTrafficLightState = TrafficLight.INTERN_OFFLINE;

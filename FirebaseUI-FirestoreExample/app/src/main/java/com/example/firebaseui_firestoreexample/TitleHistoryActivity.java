@@ -28,7 +28,7 @@ import java.util.Objects;
 import static android.widget.Toast.LENGTH_SHORT;
 import static android.widget.Toast.makeText;
 
-public class TitleHistoryActivity extends AppCompatActivity {
+public class TitleHistoryActivity extends MyActivity {
 
     private ArrayList<String> noteHistoryList;
     private DocumentReference documentRef;
@@ -112,19 +112,6 @@ public class TitleHistoryActivity extends AppCompatActivity {
         );
 
 
-    }
-
-    private boolean isNetworkAvailable() {
-        ConnectivityManager manager =
-                (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-        assert manager != null; //added to avoid warning
-        NetworkInfo networkInfo = manager.getActiveNetworkInfo();
-        boolean isAvailable = false;
-        if (networkInfo != null && networkInfo.isConnected()) {
-            // Network is present and connected
-            isAvailable = true;
-        }
-        return isAvailable;
     }
 
     private void chooseBetweenServerDataAndLocalData(String serverData) {

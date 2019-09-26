@@ -1,6 +1,7 @@
 package com.example.firebaseui_firestoreexample;
 
 import android.annotation.SuppressLint;
+import android.content.res.Resources;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.telephony.TelephonyManager;
@@ -38,6 +39,11 @@ public class SettingsActivity extends MyActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_settings);
 
+        setTitle("Settings");
+
+        // added for the traffic light
+        onCreateCalled = true;
+
         autoInternInternetOffWhenE();
 
         startAppOffline();
@@ -53,23 +59,23 @@ public class SettingsActivity extends MyActivity {
     @SuppressLint("SetTextI18n")
     private void username() {
         currentUsername = findViewById(R.id.currentUsername);
-        db.collection("users").document(MyApp.uid).addSnapshotListener((documentSnapshot, e) -> {
-            if (e != null) System.err.println("Listen failed: " + e);
-
-            if (documentSnapshot != null && documentSnapshot.exists()) {
-                CloudUser cloudUser = documentSnapshot.toObject(CloudUser.class);
-                if (cloudUser != null) {
-                    MyApp.username = cloudUser.getUsername();
-                    currentUsername.setText("current username: " + MyApp.username);
-                    currentUsername.setTextColor(Color.BLACK);
-                }
-            }
-
-        });
 
         usernameCheckAvailability = findViewById(R.id.check_username_availability);
         usernameCheckAvailability.setText(MyApp.username);
-        if (isNetworkAvailable())
+        if (isNetworkAvailable()&&!MyApp.internetDisabledInternally){
+            db.collection("users").document(MyApp.uid).addSnapshotListener((documentSnapshot, e) -> {
+                if (e != null) System.err.println("Listen failed: " + e);
+
+                if (documentSnapshot != null && documentSnapshot.exists()) {
+                    CloudUser cloudUser = documentSnapshot.toObject(CloudUser.class);
+                    if (cloudUser != null) {
+                        MyApp.username = cloudUser.getUsername();
+                        currentUsername.setText("current username: " + MyApp.username);
+                        currentUsername.setTextColor(Color.BLACK);
+                    }
+                }
+
+            });
             usernameCheckAvailability.addTextChangedListener(new TextWatcher() {
                 @Override
                 public void beforeTextChanged(CharSequence s, int start, int count, int after) {
@@ -98,21 +104,22 @@ public class SettingsActivity extends MyActivity {
                                         currentUsername.setTextColor(Color.RED);
                                         currentUsername.setText("username: " + username + " is already taken");
                                     } else {
-                                        usernameCheckAvailability.setTextColor(Color.GREEN);
+                                        usernameCheckAvailability.setTextColor(Color.parseColor("##36832B"));
                                         currentUsername.setText("current username: " + MyApp.username);
                                         currentUsername.setTextColor(Color.BLACK);
                                     }
                                 }
                             } else {
-                                usernameCheckAvailability.setTextColor(Color.GREEN);
+                                usernameCheckAvailability.setTextColor(Color.parseColor("##36832B"));
                                 db.collection("users").document(MyApp.uid).update("username", username);
                             }
                     });
                 }
             });
+        }
         else {
             usernameCheckAvailability.setVisibility(View.GONE);
-            currentUsername.setText("last username registered: " + MyApp.username + "\n connect to internet to change username");
+            currentUsername.setText("no internet connection last username registered:\n" + MyApp.username + "\n go online to change username");
         }
     }
 
@@ -162,7 +169,11 @@ public class SettingsActivity extends MyActivity {
         });
 
         AutoCompleteTextView addFriends = findViewById(R.id.addFriends);
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, usernameSuggestions);
+        if (!isNetworkAvailable() || MyApp.internetDisabledInternally){
+            addFriends.setHint("go online to add friends");
+        }
+
+            ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, usernameSuggestions);
         addFriends.setAdapter(adapter);
         addFriends.setOnItemClickListener((parent, view, position, id) -> {
             String newFriend = (String) parent.getItemAtPosition(position);
@@ -175,5 +186,45 @@ public class SettingsActivity extends MyActivity {
         });
     }
 
+
+    // added for the traffic light
+
+    boolean onCreateCalled;
+    private TrafficLight lastTrafficLightState;
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        onCreateCalled = false;
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        // add in MyApp and in NetworkChangeReciever for the traffic light
+        MyApp.activitySettingsResumed();
+        if (!onCreateCalled && MyApp.lastTrafficLightState != lastTrafficLightState)
+            recreate();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        MyApp.activitySettingsStopped();
+    }
+
+
+
+
+    @Override
+    public Resources.Theme getTheme() {
+        super.setLastTrafficLightState(lastTrafficLightState);
+        Resources.Theme theme = super.getTrafficLightTheme();
+        lastTrafficLightState = super.getLastTrafficLightState();
+        return theme;
+    }
+
+    // until here for the traffic light
 
 }

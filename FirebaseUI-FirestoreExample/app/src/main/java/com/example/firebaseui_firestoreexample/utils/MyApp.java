@@ -63,6 +63,8 @@ public class MyApp extends Application {
     public static HashMap<String, DocumentReference> locationReminders;
     private static boolean activityMainVisible;
     private static boolean activityNewNoteVisible;
+    private static boolean activityLoginVisible;
+    private static boolean activitySettingsVisible;
     private static boolean activityEditNoteVisible;
     private static boolean backUpFailed;
     public static boolean appStarted;
@@ -166,6 +168,10 @@ public class MyApp extends Application {
         super.onCreate();
         firstInstance = this;
         registerReceiver(new NetworkChangeReceiver(), new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
+        fireStore();
+    }
+
+    public void fireStore() {
         db = FirebaseFirestore.getInstance();
 //        long long_one_mb = 1048576L;
         FirebaseFirestoreSettings settings = new FirebaseFirestoreSettings.Builder()
@@ -218,6 +224,34 @@ public class MyApp extends Application {
         activityNewNoteVisible = true;
     }
 
+    public static void activityNewNoteStopped() {
+        activityNewNoteVisible = false;
+    }
+
+    public static boolean isActivityLoginVisible() {
+        return activityLoginVisible;
+    }
+
+    public static void activityLoginResumed() {
+        activityLoginVisible = true;
+    }
+
+    public static void activityLoginStopped() {
+        activityLoginVisible = false;
+    }
+
+    public static boolean isActivitySettingsVisible() {
+        return activitySettingsVisible;
+    }
+
+    public static void activitySettingsResumed() {
+        activitySettingsVisible = true;
+    }
+
+    public static void activitySettingsStopped() {
+        activitySettingsVisible = false;
+    }
+
     public static boolean isActivityMainVisible() {
         return activityMainVisible;
     }
@@ -226,7 +260,7 @@ public class MyApp extends Application {
         activityMainVisible = true;
     }
 
-    public static void activityStopped() {
+    public static void activityMainStopped() {
         activityMainVisible = false;
     }
 

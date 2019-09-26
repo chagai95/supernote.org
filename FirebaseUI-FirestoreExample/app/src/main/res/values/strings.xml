@@ -15,4 +15,5 @@
     <string name="username_text_explaining_what_to_do">change username here:</string>
     <string name="current_username" />
     <string name="share_with_another_user">share with another user</string>
+    <string name="go_online_to_login_explaining_text">go online to log in or skip login</string>
 </resources>

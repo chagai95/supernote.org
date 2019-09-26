@@ -10,9 +10,11 @@ import android.telephony.TelephonyManager;
 import android.widget.Toast;
 
 import com.example.firebaseui_firestoreexample.EditNoteActivity;
+import com.example.firebaseui_firestoreexample.LoginActivity;
 import com.example.firebaseui_firestoreexample.MainActivity;
 import com.example.firebaseui_firestoreexample.MyActivityLifecycleCallbacks;
 import com.example.firebaseui_firestoreexample.NewNoteActivity;
+import com.example.firebaseui_firestoreexample.SettingsActivity;
 
 public class NetworkChangeReceiver extends BroadcastReceiver {
 
@@ -54,14 +56,19 @@ public class NetworkChangeReceiver extends BroadcastReceiver {
                 }
 
                 if (activity instanceof EditNoteActivity) {
-                    if (MyApp.isActivityEditNoteVisible())
-                        activity.recreate();
+                    if (MyApp.isActivityEditNoteVisible()) activity.recreate();
                 }
                 if (activity instanceof MainActivity) {
                     if (MyApp.isActivityMainVisible()) activity.recreate();
                 }
                 if (activity instanceof NewNoteActivity) {
                     if (MyApp.isActivityNewNoteVisible()) activity.recreate();
+                }
+                if (activity instanceof SettingsActivity) {
+                    if (MyApp.isActivitySettingsVisible()) activity.recreate();
+                }
+                if (activity instanceof LoginActivity) {
+                    if (MyApp.isActivityLoginVisible()) activity.recreate();
                 }
             }
     }

@@ -33,6 +33,8 @@ public class NewNoteActivity extends MyActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_new_note);
+
+        // added for the traffic light
         onCreateCalled = true;
 
 
@@ -90,6 +92,8 @@ public class NewNoteActivity extends MyActivity {
         finish();
     }
 
+    // added for the traffic light
+
     boolean onCreateCalled;
     private TrafficLight lastTrafficLightState;
 
@@ -102,9 +106,17 @@ public class NewNoteActivity extends MyActivity {
     @Override
     protected void onResume() {
         super.onResume();
+
+        // add in MyApp and in NetworkChangeReciever for the traffic light
         MyApp.activityNewNoteResumed();
         if (!onCreateCalled && MyApp.lastTrafficLightState != lastTrafficLightState)
             recreate();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        MyApp.activityNewNoteStopped();
     }
 
     @Override
@@ -115,7 +127,6 @@ public class NewNoteActivity extends MyActivity {
         return theme;
     }
 
-    boolean isNetworkAvailable() {
-        return super.isNetworkAvailable();
-    }
+    // until here for the traffic light
+
 }

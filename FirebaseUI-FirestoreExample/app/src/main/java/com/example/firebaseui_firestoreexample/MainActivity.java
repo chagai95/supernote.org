@@ -64,6 +64,8 @@ public class MainActivity extends MyActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        MyApp.getFirstInstance().registerActivityLifecycleCallbacks(new MyActivityLifecycleCallbacks());
+
         db = FirebaseFirestore.getInstance();
 
         FirebaseAuth mAuth = FirebaseAuth.getInstance();
@@ -71,6 +73,7 @@ public class MainActivity extends MyActivity {
         if (firebaseUser == null) {
             login();
         } else {
+
             saveUserToMyApp();
 
             disablingInternetIfAnonymousUser();
@@ -85,7 +88,6 @@ public class MainActivity extends MyActivity {
 //            startService(mServiceIntent);
 //        }
 
-            MyApp.getFirstInstance().registerActivityLifecycleCallbacks(new MyActivityLifecycleCallbacks());
 
             startAppOffline();
 
@@ -150,7 +152,7 @@ public class MainActivity extends MyActivity {
     private void swipeToRefresh() {
         final SwipeRefreshLayout pullToRefresh = findViewById(R.id.pullToRefresh);
         pullToRefresh.setOnRefreshListener(() -> {
-            refreshTrafficLight(); // your code
+            recreate();
             pullToRefresh.setRefreshing(false);
         });
     }
@@ -180,13 +182,12 @@ public class MainActivity extends MyActivity {
     }
 
     private void login() {
+        db.enableNetwork();
+        MyApp.internetDisabledInternally = false;
         startActivity(new Intent(MainActivity.this, LoginActivity.class));
         finish();
     }
 
-    private void refreshTrafficLight() {
-        recreate();
-    }
 
     private void createCacheLoaderTimerTask() {
         Calendar today = Calendar.getInstance();
@@ -279,7 +280,7 @@ public class MainActivity extends MyActivity {
 
             @Override
             public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
-                if(MyApp.recyclerViewMode.equals("trash"))
+                if (MyApp.recyclerViewMode.equals("trash"))
                     adapter.untrashItem(viewHolder.getAdapterPosition());
                 else
                     adapter.trashItem(viewHolder.getAdapterPosition());
@@ -318,7 +319,6 @@ public class MainActivity extends MyActivity {
     }
 
 
-
     @Override
     protected void onStart() {
         super.onStart();
@@ -330,7 +330,7 @@ public class MainActivity extends MyActivity {
     protected void onStop() {
         super.onStop();
         if (adapter != null) {
-            MyApp.activityStopped();
+            MyApp.activityMainStopped();
             adapter.stopListening();
         }
     }
@@ -381,6 +381,8 @@ public class MainActivity extends MyActivity {
         else
             appInternInternetOffToggleMenuItem.setTitle("deactivate internet in App");
 
+//        consider creating a method for all internet changes aside from the traffic light to handle all of the cases
+//        which are not connected to the data but still require internet even if the internet is off internally.
         MenuItem reportBug = menu.findItem(R.id.report_bug);
         if (isNetworkAvailable())
             reportBug.setTitle("report bug");
@@ -408,7 +410,7 @@ public class MainActivity extends MyActivity {
                 return true;
             case R.id.login:
 //                deal here with the anonymous user merge with the new user
-                startActivity(new Intent(MainActivity.this, LoginActivity.class));
+                login();
                 return true;
             case R.id.logout:
                 logout();
