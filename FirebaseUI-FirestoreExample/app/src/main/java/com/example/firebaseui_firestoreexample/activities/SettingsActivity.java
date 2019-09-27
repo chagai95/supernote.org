@@ -1,4 +1,4 @@
-package com.example.firebaseui_firestoreexample;
+package com.example.firebaseui_firestoreexample.activities;
 
 import android.annotation.SuppressLint;
 import android.content.res.Resources;
@@ -15,6 +15,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
 
+import com.example.firebaseui_firestoreexample.CloudUser;
+import com.example.firebaseui_firestoreexample.R;
 import com.example.firebaseui_firestoreexample.utils.MyApp;
 import com.example.firebaseui_firestoreexample.utils.NetworkUtil;
 import com.example.firebaseui_firestoreexample.utils.TrafficLight;

@@ -1,4 +1,4 @@
-package com.example.firebaseui_firestoreexample;
+package com.example.firebaseui_firestoreexample.activities;
 
 import android.content.Intent;
 import android.content.res.Resources;
@@ -9,6 +9,8 @@ import android.widget.TextView;
 
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
+import com.example.firebaseui_firestoreexample.CloudUser;
+import com.example.firebaseui_firestoreexample.R;
 import com.example.firebaseui_firestoreexample.utils.MyApp;
 import com.example.firebaseui_firestoreexample.utils.TrafficLight;
 import com.firebase.ui.auth.AuthUI;

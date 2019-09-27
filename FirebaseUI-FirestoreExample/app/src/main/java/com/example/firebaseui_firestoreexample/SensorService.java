@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.os.IBinder;
 import android.util.Log;
 
+import com.example.firebaseui_firestoreexample.activities.MainActivity;
 import com.example.firebaseui_firestoreexample.utils.MyApp;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;

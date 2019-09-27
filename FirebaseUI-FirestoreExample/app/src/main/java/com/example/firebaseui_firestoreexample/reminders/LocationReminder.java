@@ -1,16 +1,16 @@
-package com.example.firebaseui_firestoreexample;
+package com.example.firebaseui_firestoreexample.reminders;
 
 import android.location.Location;
 
 import com.google.firebase.firestore.GeoPoint;
 
-public class LocationReminder extends Reminder{
+public class LocationReminder extends Reminder {
     GeoPoint geoPoint;
     private double radius;
     private boolean arrive;
     private boolean leave;
 
-    LocationReminder(GeoPoint geoPoint,double radius) {
+    public LocationReminder(GeoPoint geoPoint,double radius) {
         super("location");
         this.radius = radius;
         this.geoPoint = geoPoint;

@@ -36,7 +36,7 @@ public class NotificationHelper {
      * the support library
      */
     @TargetApi(Build.VERSION_CODES.O)
-    void initNotificationChannels() {
+    public void initNotificationChannels() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
             return;
         }

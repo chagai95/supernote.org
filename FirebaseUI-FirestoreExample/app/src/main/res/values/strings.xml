@@ -3,7 +3,7 @@
     <string name="title">Title</string>
     <string name="description">Description</string>
     <string name="priority">Priority</string>
-    <string name="activate_use_offline">save_for_use_offline</string>
+    <string name="keep_listener_on">keep synced</string>
     <string name="activate_load_to_cache">load to cache every ____</string>
     <string name="deactivate_use_offline">deactivate use offline</string>
     <string name="turn_off_internet_automatically_when_e_connection_shows">turn off internet automatically when E connection shows</string>

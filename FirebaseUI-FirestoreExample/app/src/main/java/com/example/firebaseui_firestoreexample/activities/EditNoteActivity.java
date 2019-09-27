@@ -1,5 +1,6 @@
-package com.example.firebaseui_firestoreexample;
+package com.example.firebaseui_firestoreexample.activities;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Resources;
@@ -24,9 +25,15 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.DialogFragment;
 
+import com.example.firebaseui_firestoreexample.CloudUser;
+import com.example.firebaseui_firestoreexample.MyDatePickerFragment;
+import com.example.firebaseui_firestoreexample.Note;
+import com.example.firebaseui_firestoreexample.R;
+import com.example.firebaseui_firestoreexample.reminders.LocationReminder;
 import com.example.firebaseui_firestoreexample.utils.MyApp;
 import com.example.firebaseui_firestoreexample.utils.OfflineNoteData;
 import com.example.firebaseui_firestoreexample.utils.TrafficLight;
+import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
@@ -39,6 +46,7 @@ import com.google.firebase.firestore.QuerySnapshot;
 import com.google.firebase.firestore.Source;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.Objects;
 
 import static android.widget.Toast.LENGTH_SHORT;
@@ -49,7 +57,6 @@ public class EditNoteActivity extends MyActivity {
     private EditText editTextDescription;
     private NumberPicker numberPickerPriority;
 
-    String noteID;
     private DocumentReference documentRef;
     public static ListenerRegistration registration;
 
@@ -61,34 +68,68 @@ public class EditNoteActivity extends MyActivity {
     Context c = this;
 
     boolean onCreateCalled;
-    boolean onCreateCalledForTextWatcher;
     private boolean keepOffline;
     private TrafficLight lastTrafficLightState;
     private FirebaseFirestore db = FirebaseFirestore.getInstance();
 
     AlertDialog alertDialogForSharingWithAnotherUser;
+    private boolean newNote;
 
 //    private int cursor;
 //    private boolean changeCursorPositionBack;
 
 
+    @SuppressLint("ClickableViewAccessibility") // to complicated and only for blind people.
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_edit_note);
 
+        Objects.requireNonNull(getSupportActionBar()).setHomeAsUpIndicator(R.drawable.ic_close); // added Objects.requireNonNull to avoid warning
+
         onCreateCalled = true;
 
-        Objects.requireNonNull(getSupportActionBar()).setHomeAsUpIndicator(R.drawable.ic_close); // added Objects.requireNonNull to avoid warning
-        setTitle("Edit note");
-
         editTextTitle = findViewById(R.id.edit_text_title);
+
+        editTextTitle.setOnClickListener(v -> editTextTitle.setCursorVisible(true));
+        editTextTitle.setOnTouchListener((v, event) -> {
+            editTextTitle.setCursorVisible(true);
+            return false;
+        });
         editTextDescription = findViewById(R.id.edit_text_description);
         numberPickerPriority = findViewById(R.id.number_picker_priority);
 
-        noteID = Objects.requireNonNull(getIntent().getStringExtra("noteID"));
-        offlineNoteData = Objects.requireNonNull(MyApp.allNotesOfflineNoteData.get(noteID));
-        documentRef = offlineNoteData.getDocumentReference();
+
+        newNote = getIntent().getBooleanExtra("newNote", false);
+        if (newNote) {
+            setTitle("Add note");
+            editTextDescription.requestFocus();
+            CollectionReference notesCollRef = FirebaseFirestore.getInstance()
+                    .collection("notes");
+            notesCollRef.add(new Note("", "", 1, new Timestamp(new Date()), MyApp.uid))
+                    .addOnCompleteListener(task -> {
+                        if (task.isSuccessful()) {
+                            DocumentReference documentReference = task.getResult();
+                            assert documentReference != null;
+                            documentRef = documentReference;
+                            offlineNoteData = new OfflineNoteData(documentReference);
+                            MyApp.allNotesOfflineNoteData.put(documentReference.getId(), offlineNoteData);
+
+                            if (isNetworkAvailable() && !MyApp.internetDisabledInternally)
+                                setNoteWithConnection();
+
+                            if (!isNetworkAvailable() || MyApp.internetDisabledInternally)
+                                setNoteWithoutConnection();
+                        }
+                    });
+        } else {
+            String noteID = Objects.requireNonNull(getIntent().getStringExtra("noteID"));
+            offlineNoteData = Objects.requireNonNull(MyApp.allNotesOfflineNoteData.get(noteID));
+            documentRef = offlineNoteData.getDocumentReference();
+            setTitle("Edit note");
+            editTextTitle.setCursorVisible(false);
+        }
+
 
         textWatchers();
 
@@ -99,7 +140,6 @@ public class EditNoteActivity extends MyActivity {
     }
 
     private void textWatchers() {
-        onCreateCalledForTextWatcher = true;
 
 
         /*cursor = 0;
@@ -128,42 +168,42 @@ public class EditNoteActivity extends MyActivity {
 
 //              onCreateCalledForTextWatcher is only to stop the saving of data when initializing the textWatcher
 //              (I assume it initializes but this might actually be called by another method - perhaps in onResume)
-                if (!onCreateCalledForTextWatcher) {
-                    if (isNetworkAvailable() && !MyApp.internetDisabledInternally) {
+                if (isNetworkAvailable() && !MyApp.internetDisabledInternally) {
 //                        when online uploading directly to the main note history list.
-                        documentRef.update("history", FieldValue.arrayUnion(editable.toString())).addOnSuccessListener(aVoid -> successfulUpload())
-                                .addOnFailureListener(e -> unsuccessfulUpload(e));
+                    documentRef.update("history", FieldValue.arrayUnion(editable.toString())).addOnSuccessListener(aVoid -> successfulUpload())
+                            .addOnFailureListener(e -> unsuccessfulUpload(e));
 //                        because the listener is on we have to check the text we want to upload is not already online otherwise we end up in an endless loop.
-                        documentRef.get().addOnCompleteListener(task -> {
-                            if (task.isSuccessful()) {
-                                DocumentSnapshot documentSnapshot = task.getResult();
-                                assert documentSnapshot != null;
-                                Note note = documentSnapshot.toObject(Note.class);
-                                assert note != null;
-                                offlineNoteData.setNote(note); // saving to enable quicker loading or pre-loading.
-                                if (!note.getTitle().equals(editable.toString()))
-                                    documentRef.update("title", editable.toString());
-                            }
-                        });
-                    }
-                    if (!isNetworkAvailable() || MyApp.internetDisabledInternally) {
+//                        the problem is this takes time and happens in a listener and not linear, hopefully method hasPendingWrites
+//                        has solved this but it might come back and bite me in the ass.
+                    documentRef.get().addOnCompleteListener(task -> {
+                        if (task.isSuccessful()) {
+                            DocumentSnapshot documentSnapshot = task.getResult();
+                            assert documentSnapshot != null;
+                            Note note = documentSnapshot.toObject(Note.class);
+                            assert note != null;
+                            offlineNoteData.setNote(note); // saving to enable quicker loading or pre-loading.
+                            if (!note.getTitle().equals(editable.toString()))
+                                documentRef.update("title", editable.toString());
+                        }
+                    });
+                }
+                if (!isNetworkAvailable() || MyApp.internetDisabledInternally) {
 //                        first we update the title field so when we come back to the note even without internet it will show the new value.
-                        documentRef.update("title", editable.toString());
+                    documentRef.update("title", editable.toString());
 //                        then we push a new note version to the sub collection of the note, which is named the id of the device - this is our unique collection
 //                        for the changes on this device.
 //                        the sub collection is created if it had not existed before.
 //                        calling get() just to to be able to convert the docRef to an object so we can copy the note using method copy note.
-                        documentRef.get(Source.CACHE).addOnCompleteListener(task -> {
-                            if (task.isSuccessful()) {
-                                Note note = Objects.requireNonNull(task.getResult()).toObject(Note.class);
-                                assert note != null;
-                                offlineNoteData.setNote(note); // saving to enable quicker loading or pre-loading.
-                                documentRef.collection(MyApp.getDeviceID(c) + MyApp.uid).add(note.newNoteVersion());
-                            }
-                        });
+                    documentRef.get(Source.CACHE).addOnCompleteListener(task -> {
+                        if (task.isSuccessful()) {
+                            Note note = Objects.requireNonNull(task.getResult()).toObject(Note.class);
+                            assert note != null;
+                            offlineNoteData.setNote(note); // saving to enable quicker loading or pre-loading.
+                            documentRef.collection(MyApp.getDeviceID(c) + MyApp.uid).add(note.newNoteVersion());
+                        }
+                    });
 
-                    }
-                } else onCreateCalledForTextWatcher = false;
+                }
             }
         };
         editTextTitle.addTextChangedListener(textWatcherTitle);
@@ -221,6 +261,10 @@ public class EditNoteActivity extends MyActivity {
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater menuInflater = getMenuInflater();
         menuInflater.inflate(R.menu.note_menu, menu);
+
+        if (MyApp.userSkippedLogin)
+            setMenuForUserSkippedLogin(menu);
+
         MenuItem appInternInternetOffToggleMenuItem = menu.findItem(R.id.app_intern_internet_toggle_in_note_activity);
         if (MyApp.internetDisabledInternally)
             appInternInternetOffToggleMenuItem.setTitle("activate internet in App");
@@ -259,12 +303,12 @@ public class EditNoteActivity extends MyActivity {
             case R.id.action_add_whatsappreminder:
                 addWhatsappReminder();
                 return true;
-            case R.id.save_for_use_offline:
-                saveForUseOffline();
+            case R.id.keep_listener_on:
+                keepListenerOn();
                 return true;
-            case R.id.save_for_load_to_cache:
+            /*case R.id.save_for_load_to_cache:
                 saveForLoadToCache();
-                return true;
+                return true;*/
             case R.id.refreshTrafficLight:
                 recreate();
                 return true;
@@ -303,26 +347,18 @@ public class EditNoteActivity extends MyActivity {
         });
 
         MyApp.userDocumentRef.get().addOnCompleteListener(task -> {
-           if(task.isSuccessful()){
-               DocumentSnapshot documentSnapshot = task.getResult();
-               assert documentSnapshot != null;
-               CloudUser cloudUser = documentSnapshot.toObject(CloudUser.class);
-               assert cloudUser != null;
-               for (String friend :
-                       cloudUser.getFriends()) {
-                   if(!usernameSuggestions.contains(friend))
-                       usernameSuggestions.add(friend);
-               }
-           }
+            if (task.isSuccessful()) {
+                DocumentSnapshot documentSnapshot = task.getResult();
+                assert documentSnapshot != null;
+                CloudUser cloudUser = documentSnapshot.toObject(CloudUser.class);
+                assert cloudUser != null;
+                for (String friend :
+                        cloudUser.getFriends()) {
+                    if (!usernameSuggestions.contains(friend))
+                        usernameSuggestions.add(friend);
+                }
+            }
         });
-
-
-
-
-
-
-
-
 
 
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, usernameSuggestions);
@@ -433,11 +469,12 @@ public class EditNoteActivity extends MyActivity {
         alert.show();
     }
 
+    @SuppressWarnings("unused")
     private void saveForLoadToCache() {
         documentRef.update("loadToCache", true);
     }
 
-    private void saveForUseOffline() {
+    private void keepListenerOn() {
         documentRef.update("keepOffline", true);
         keepOffline = true;
 //        add a color or a symbol to show this note is kept offline.
@@ -467,6 +504,20 @@ public class EditNoteActivity extends MyActivity {
                 MyApp.historyTitle) {
             System.out.println(s);
         }*/
+        if (editTextTitle.getText().toString().trim().equals("")) {
+            String description = editTextDescription.getText().toString();
+            boolean shortEnough = description.length() < 45;
+            int titleLength = shortEnough ? description.length() : 40;
+            int checkIfOneBigAssWord = description.substring(0, titleLength).lastIndexOf(" ");
+            if (checkIfOneBigAssWord <= 0)
+                checkIfOneBigAssWord = 40;
+            if (shortEnough)
+                documentRef.update("title", description);
+            else
+                documentRef.update("title", description
+                        .substring(0, checkIfOneBigAssWord));
+
+        }
         if (registration != null)
             registration.remove();
         documentRef.get().addOnCompleteListener(task -> {
@@ -498,6 +549,119 @@ public class EditNoteActivity extends MyActivity {
         if (!onCreateCalled && MyApp.lastTrafficLightState != lastTrafficLightState)
             recreate();
 
+        if (!newNote) {
+
+            setPreLoading();
+
+            if (isNetworkAvailable() && !MyApp.internetDisabledInternally)
+                setNoteWithConnection();
+
+            if (!isNetworkAvailable() || MyApp.internetDisabledInternally)
+                setNoteWithoutConnection();
+        }
+
+    }
+
+    private void setNoteWithoutConnection() {
+
+        documentRef.get().addOnCompleteListener(task -> {
+            if (task.isSuccessful()) {
+                DocumentSnapshot documentSnapshot = task.getResult();
+                if (Objects.requireNonNull(documentSnapshot).exists()) {
+                    runOnUiThread(() -> {
+                        Note note = documentSnapshot.toObject(Note.class);
+                        assert note != null;
+                        offlineNoteData.setNote(note); // saving to enable quicker loading or pre-loading.
+//                            setting the variable only the first time we move from online to offline - if it is -1 that means
+//                            we were online before.                    offlineNoteData.setNote(note); // saving to enable quicker loading or pre-loading.
+                        if (offlineNoteData.getLastKnownNoteHistoryListSize() == -1)
+                            offlineNoteData.setLastKnownNoteHistoryListSize(note.getHistory().size());
+
+                        // adding an older version of the title from the historyTitle list
+                        if (MyApp.titleOldVersion != null) {
+                            editTextTitle.setText(MyApp.titleOldVersion);
+                            MyApp.titleOldVersion = null;
+                        } else {
+                            editTextTitle.removeTextChangedListener(textWatcherTitle);
+                            editTextTitle.setTextColor(Color.BLACK);
+                            editTextTitle.setText(note.getTitle());
+                            editTextTitle.addTextChangedListener(textWatcherTitle);
+
+                            editTextDescription.removeTextChangedListener(textWatcherDescription);
+                            editTextDescription.setTextColor(Color.BLACK);
+                            editTextDescription.setText(note.getDescription());
+                            editTextDescription.addTextChangedListener(textWatcherDescription);
+
+                        }
+                    });
+                }
+            }
+        });
+
+    }
+
+    private void setNoteWithConnection() {
+
+
+        //adding an older version of the title from the historyTitle list
+        if (MyApp.titleOldVersion != null) {
+            editTextTitle.setText(MyApp.titleOldVersion);
+            MyApp.titleOldVersion = null;
+        }
+
+        documentRef.get().addOnCompleteListener(task -> {
+            if (task.isSuccessful()) {
+                DocumentSnapshot documentSnapshot = task.getResult();
+                if (Objects.requireNonNull(documentSnapshot).exists()) {
+                    Note note = documentSnapshot.toObject(Note.class);
+                    assert note != null;
+                    offlineNoteData.setNote(note); // saving to enable quicker loading or pre-loading.
+
+//                        if this equals -1 that means we are coming from an online state so there is no need to check for changes
+//                        and we can set the listener directly.
+                    if (offlineNoteData.getLastKnownNoteHistoryListSize() != -1) {
+//                            getting the unique device history list - this has no use online so we can just call it from the cache.
+                        documentRef.collection(MyApp.getDeviceID(c) + MyApp.uid).orderBy("created", Query.Direction.ASCENDING).get(Source.CACHE).addOnCompleteListener(taskOfflineHistory -> {
+                            if (taskOfflineHistory.isSuccessful()) {
+                                ArrayList<DocumentSnapshot> deviceHistoryList = (ArrayList<DocumentSnapshot>) Objects.requireNonNull(taskOfflineHistory.getResult()).getDocuments();
+//                                    if the size of the main note history list has changed we want to check if the title is not coincidentally the same and then
+//                                    if not we can call the dialog so the user can choose.
+                                if (offlineNoteData.getLastKnownNoteHistoryListSize() != note.getHistory().size())
+                                    if (!note.getHistory().get(note.getHistory().size() - 1).equals(Objects.requireNonNull(deviceHistoryList.get(deviceHistoryList.size() - 1).getData()).get("title")))
+                                        chooseBetweenServerDataAndLocalData(note.getHistory().get(note.getHistory().size() - 1));
+//                                    moving all the elements from the unique device history list to the main note history list and
+//                                    then clearing unique device history list.
+                                for (DocumentSnapshot documentSnapshotOfflineHistory :
+                                        deviceHistoryList) {
+                                    documentRef.update("history", FieldValue.arrayUnion(Objects.requireNonNull(documentSnapshotOfflineHistory.getData()).get("title")));
+                                }
+                                for (DocumentSnapshot documentSnapshotOfflineHistory :
+                                        deviceHistoryList) {
+                                    documentSnapshotOfflineHistory.getReference().delete();
+                                }
+//                                    setting back to -1 so this will not be called when the note was not edited offline.
+                                offlineNoteData.setLastKnownNoteHistoryListSize(-1);
+
+//                                    this is called here so it does not mess with the main note history list before
+//                                    we are done with transferring everything and we also do not want the size to change before checking if it changed.
+                                if (offlineNoteData.getListenerRegistration() != null)
+                                    offlineNoteData.getListenerRegistration().remove();
+                                createFirestoreListener();
+                            }
+                        });
+                    } else {
+                        if (offlineNoteData.getListenerRegistration() != null)
+                            offlineNoteData.getListenerRegistration().remove();
+                        createFirestoreListener();
+                    }
+                }
+            }
+        });
+
+
+    }
+
+    private void setPreLoading() {
         editTextTitle.removeTextChangedListener(textWatcherTitle);
         editTextTitle.setTextColor(Color.parseColor("#DF3B0D"));
         editTextTitle.setText(offlineNoteData.getNote().getTitle());
@@ -507,104 +671,6 @@ public class EditNoteActivity extends MyActivity {
         editTextDescription.setTextColor(Color.parseColor("#DF3B0D"));
         editTextDescription.setText(offlineNoteData.getNote().getDescription());
         editTextDescription.addTextChangedListener(textWatcherDescription);
-
-
-        if (isNetworkAvailable() && !MyApp.internetDisabledInternally) {
-
-            //adding an older version of the title from the historyTitle list
-            if (MyApp.titleOldVersion != null) {
-                editTextTitle.setText(MyApp.titleOldVersion);
-                MyApp.titleOldVersion = null;
-            }
-
-            documentRef.get().addOnCompleteListener(task -> {
-                if (task.isSuccessful()) {
-                    DocumentSnapshot documentSnapshot = task.getResult();
-                    if (Objects.requireNonNull(documentSnapshot).exists()) {
-                        Note note = documentSnapshot.toObject(Note.class);
-                        assert note != null;
-                        offlineNoteData.setNote(note); // saving to enable quicker loading or pre-loading.
-
-//                        if this equals -1 that means we are coming from an online state so there is no need to check for changes
-//                        and we can set the listener directly.
-                        if (offlineNoteData.getLastKnownNoteHistoryListSize() != -1) {
-//                            getting the unique device history list - this has no use online so we can just call it from the cache.
-                            documentRef.collection(MyApp.getDeviceID(c) + MyApp.uid).orderBy("created", Query.Direction.ASCENDING).get(Source.CACHE).addOnCompleteListener(taskOfflineHistory -> {
-                                if (taskOfflineHistory.isSuccessful()) {
-                                    ArrayList<DocumentSnapshot> deviceHistoryList = (ArrayList<DocumentSnapshot>) Objects.requireNonNull(taskOfflineHistory.getResult()).getDocuments();
-//                                    if the size of the main note history list has changed we want to check if the title is not coincidentally the same and then
-//                                    if not we can call the dialog so the user can choose.
-                                    if (offlineNoteData.getLastKnownNoteHistoryListSize() != note.getHistory().size())
-                                        if (!note.getHistory().get(note.getHistory().size() - 1).equals(Objects.requireNonNull(deviceHistoryList.get(deviceHistoryList.size() - 1).getData()).get("title")))
-                                            chooseBetweenServerDataAndLocalData(note.getHistory().get(note.getHistory().size() - 1));
-//                                    moving all the elements from the unique device history list to the main note history list and
-//                                    then clearing unique device history list.
-                                    for (DocumentSnapshot documentSnapshotOfflineHistory :
-                                            deviceHistoryList) {
-                                        documentRef.update("history", FieldValue.arrayUnion(Objects.requireNonNull(documentSnapshotOfflineHistory.getData()).get("title")));
-                                    }
-                                    for (DocumentSnapshot documentSnapshotOfflineHistory :
-                                            deviceHistoryList) {
-                                        documentSnapshotOfflineHistory.getReference().delete();
-                                    }
-//                                    setting back to -1 so this will not be called when the note was not edited offline.
-                                    offlineNoteData.setLastKnownNoteHistoryListSize(-1);
-
-//                                    this is called here so it does not mess with the main note history list before
-//                                    we are done with transferring everything and we also do not want the size to change before checking if it changed.
-                                    if (offlineNoteData.getListenerRegistration() != null)
-                                        offlineNoteData.getListenerRegistration().remove();
-                                    createFirestoreListener();
-                                }
-                            });
-                        } else {
-                            if (offlineNoteData.getListenerRegistration() != null)
-                                offlineNoteData.getListenerRegistration().remove();
-                            createFirestoreListener();
-                        }
-                    }
-                }
-            });
-
-
-        }
-
-        if (!isNetworkAvailable() || MyApp.internetDisabledInternally) {
-            documentRef.get().addOnCompleteListener(task -> {
-                if (task.isSuccessful()) {
-                    DocumentSnapshot documentSnapshot = task.getResult();
-                    if (Objects.requireNonNull(documentSnapshot).exists()) {
-                        runOnUiThread(() -> {
-                            Note note = documentSnapshot.toObject(Note.class);
-                            assert note != null;
-                            offlineNoteData.setNote(note); // saving to enable quicker loading or pre-loading.
-//                            setting the variable only the first time we move from online to offline - if it is -1 that means
-//                            we were online before.                    offlineNoteData.setNote(note); // saving to enable quicker loading or pre-loading.
-                            if (offlineNoteData.getLastKnownNoteHistoryListSize() == -1)
-                                offlineNoteData.setLastKnownNoteHistoryListSize(note.getHistory().size());
-
-                            // adding an older version of the title from the historyTitle list
-                            if (MyApp.titleOldVersion != null) {
-                                editTextTitle.setText(MyApp.titleOldVersion);
-                                MyApp.titleOldVersion = null;
-                            } else {
-                                editTextTitle.removeTextChangedListener(textWatcherTitle);
-                                editTextTitle.setTextColor(Color.BLACK);
-                                editTextTitle.setText(note.getTitle());
-                                editTextTitle.addTextChangedListener(textWatcherTitle);
-
-                                editTextDescription.removeTextChangedListener(textWatcherDescription);
-                                editTextDescription.setTextColor(Color.BLACK);
-                                editTextDescription.setText(note.getDescription());
-                                editTextDescription.addTextChangedListener(textWatcherDescription);
-
-                            }
-                        });
-                    }
-                }
-            });
-        }
-
     }
 
     private void createFirestoreListener() {
@@ -618,21 +684,22 @@ public class EditNoteActivity extends MyActivity {
                     offlineNoteData.setNote(note); // saving to enable quicker loading or pre-loading.
                     // check if the data in the server has newer date than the one in the editable and force it to be shown
                     // this line should go off when the internet comes back on.
+                    editTextTitle.setTextColor(Color.BLACK);
+                    editTextDescription.setTextColor(Color.BLACK);
+//                    hasPendingWrites is important because it keeps the server in it's place.
                     if (!documentSnapshot.getMetadata().hasPendingWrites()) {
-                        editTextTitle.setTextColor(Color.BLACK);
                         if (!note.getTitle().equals(editTextTitle.getText().toString())) {
                             editTextTitle.removeTextChangedListener(textWatcherTitle);
                             editTextTitle.setText(note.getTitle());
                             editTextTitle.addTextChangedListener(textWatcherTitle);
                         }
-                        editTextDescription.setTextColor(Color.BLACK);
                         if (!note.getDescription().equals(editTextDescription.toString())) {
                             editTextDescription.removeTextChangedListener(textWatcherDescription);
                             editTextDescription.setText(note.getDescription());
                             editTextDescription.addTextChangedListener(textWatcherDescription);
                         }
-                        numberPickerPriority.setValue(note.getPriority());
                     }
+                    numberPickerPriority.setValue(note.getPriority());
                 }
             }
 
@@ -645,19 +712,26 @@ public class EditNoteActivity extends MyActivity {
         String description = editTextDescription.getText().toString();
         int priority = numberPickerPriority.getValue();
 
-        if (title.trim().isEmpty() || description.trim().isEmpty()) {
-            makeText(this, "please insert a title AND description", LENGTH_SHORT).show();
-            return;
-        }
-
 
         documentRef.update(
                 "title", title,
                 "description", description,
                 "priority", priority
         );
-        makeText(this, "Note edited", LENGTH_SHORT).show();
+        if (newNote)
+            makeText(this, "Note added", LENGTH_SHORT).show();
+        else
+            makeText(this, "Note edited", LENGTH_SHORT).show();
         finish();
+    }
+
+    private void setMenuForUserSkippedLogin(Menu menu) {
+        MenuItem appInternInternetOffToggleMenuItem = menu.findItem(R.id.app_intern_internet_toggle_in_note_activity);
+        appInternInternetOffToggleMenuItem.setVisible(false);
+        MenuItem shareWithAnotherUserMenuItem = menu.findItem(R.id.share_with_another_user);
+        shareWithAnotherUserMenuItem.setVisible(false);
+        MenuItem keepSyncedMenuItem = menu.findItem(R.id.keep_listener_on);
+        keepSyncedMenuItem.setVisible(false);
     }
 
     @Override

@@ -1,4 +1,4 @@
-package com.example.firebaseui_firestoreexample;
+package com.example.firebaseui_firestoreexample.activities;
 
 import android.content.Context;
 import android.content.res.Resources;
@@ -8,6 +8,7 @@ import android.telephony.TelephonyManager;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.example.firebaseui_firestoreexample.R;
 import com.example.firebaseui_firestoreexample.utils.MyApp;
 import com.example.firebaseui_firestoreexample.utils.NetworkUtil;
 import com.example.firebaseui_firestoreexample.utils.TrafficLight;

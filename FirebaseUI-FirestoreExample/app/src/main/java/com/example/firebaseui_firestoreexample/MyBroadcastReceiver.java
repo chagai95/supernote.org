@@ -9,6 +9,7 @@ import android.util.Log;
 
 import androidx.core.app.TaskStackBuilder;
 
+import com.example.firebaseui_firestoreexample.activities.EditNoteActivity;
 import com.example.firebaseui_firestoreexample.utils.MyApp;
 import com.example.firebaseui_firestoreexample.utils.OfflineNoteData;
 import com.google.firebase.firestore.DocumentReference;

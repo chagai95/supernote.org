@@ -13,6 +13,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.fragment.app.DialogFragment;
 
+import com.example.firebaseui_firestoreexample.reminders.TimeReminder;
 import com.example.firebaseui_firestoreexample.utils.MyApp;
 import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.DocumentReference;
@@ -30,7 +31,7 @@ public class MyDatePickerFragment extends DialogFragment {
     private DocumentReference documentReference;
     private String whatsappNumber, whatsappMessage;
 
-    MyDatePickerFragment(DocumentReference documentReference, Context c, String whatsappNumber, String whatsappMessage) {
+    public MyDatePickerFragment(DocumentReference documentReference, Context c, String whatsappNumber, String whatsappMessage) {
         this.documentReference = documentReference;
         this.c = c;
         this.whatsappNumber = whatsappNumber;

@@ -1,10 +1,11 @@
-package com.example.firebaseui_firestoreexample;
+package com.example.firebaseui_firestoreexample.reminders;
 
+import com.example.firebaseui_firestoreexample.reminders.Reminder;
 import com.google.firebase.Timestamp;
 
 public class TimeReminder extends Reminder {
     private Timestamp timestamp;
-    TimeReminder(Timestamp timestamp) {
+    public TimeReminder(Timestamp timestamp) {
         super("time");
         this.timestamp = timestamp;
     }

@@ -2,11 +2,11 @@ package com.example.firebaseui_firestoreexample;
 
 import java.util.ArrayList;
 
-class CloudUser {
+public class CloudUser {
     private String username;
     private ArrayList<String> friends;
 
-    CloudUser(String username) {
+    public CloudUser(String username) {
         this.username = username;
         friends = new ArrayList<>();
     }

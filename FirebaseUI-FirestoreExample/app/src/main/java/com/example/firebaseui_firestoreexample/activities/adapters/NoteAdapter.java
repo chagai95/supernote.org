@@ -1,4 +1,4 @@
-package com.example.firebaseui_firestoreexample;
+package com.example.firebaseui_firestoreexample.activities.adapters;
 
 import android.app.Activity;
 import android.view.LayoutInflater;
@@ -9,6 +9,8 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.example.firebaseui_firestoreexample.Note;
+import com.example.firebaseui_firestoreexample.R;
 import com.example.firebaseui_firestoreexample.utils.MyApp;
 import com.example.firebaseui_firestoreexample.utils.OfflineNoteData;
 import com.firebase.ui.firestore.FirestoreRecyclerAdapter;
@@ -26,7 +28,7 @@ public class NoteAdapter extends FirestoreRecyclerAdapter<Note, NoteAdapter.Note
     private boolean startAppAndCloseMainActivity;
     private Activity activity;
 
-    NoteAdapter(@NonNull FirestoreRecyclerOptions<Note> options, Activity activity, boolean startAppAndCloseMainActivity) {
+    public NoteAdapter(@NonNull FirestoreRecyclerOptions<Note> options, Activity activity, boolean startAppAndCloseMainActivity) {
         super(options);
         this.activity = activity;
         this.startAppAndCloseMainActivity = startAppAndCloseMainActivity;
@@ -74,11 +76,11 @@ public class NoteAdapter extends FirestoreRecyclerAdapter<Note, NoteAdapter.Note
         getSnapshots().getSnapshot(position).getReference().delete();
     }
 
-    void trashItem(int position) {
+    public void trashItem(int position) {
         getSnapshots().getSnapshot(position).getReference().update("trash",true);
     }
 
-    void untrashItem(int position) {
+    public void untrashItem(int position) {
         getSnapshots().getSnapshot(position).getReference().update("trash",false);
     }
 
@@ -108,7 +110,7 @@ public class NoteAdapter extends FirestoreRecyclerAdapter<Note, NoteAdapter.Note
         void onItemClick(DocumentSnapshot documentSnapshot, int position);
     }
 
-    void setOnItemClickListener(OnItemClickListener listener) {
+    public void setOnItemClickListener(OnItemClickListener listener) {
         this.listener = listener;
     }
 }

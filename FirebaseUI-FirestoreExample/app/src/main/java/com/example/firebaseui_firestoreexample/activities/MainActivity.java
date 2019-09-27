@@ -1,4 +1,4 @@
-package com.example.firebaseui_firestoreexample;
+package com.example.firebaseui_firestoreexample.activities;
 
 import android.Manifest;
 import android.content.Context;
@@ -26,6 +26,14 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
+import com.example.firebaseui_firestoreexample.CloudUser;
+import com.example.firebaseui_firestoreexample.InternetThread;
+import com.example.firebaseui_firestoreexample.MyActivityLifecycleCallbacks;
+import com.example.firebaseui_firestoreexample.MyDatePickerFragment;
+import com.example.firebaseui_firestoreexample.Note;
+import com.example.firebaseui_firestoreexample.activities.adapters.NoteAdapter;
+import com.example.firebaseui_firestoreexample.NotificationHelper;
+import com.example.firebaseui_firestoreexample.R;
 import com.example.firebaseui_firestoreexample.utils.MyApp;
 import com.example.firebaseui_firestoreexample.utils.TrafficLight;
 import com.firebase.ui.auth.AuthUI;
@@ -130,7 +138,7 @@ public class MainActivity extends MyActivity {
 
     private void newNote() {
         FloatingActionButton buttonAddNote = findViewById(R.id.button_add_note);
-        buttonAddNote.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, NewNoteActivity.class)));
+        buttonAddNote.setOnClickListener(view -> startActivity(new Intent(MainActivity.this,EditNoteActivity.class).putExtra("newNote",true)));
     }
 
     private void startAppOffline() {
@@ -366,14 +374,16 @@ public class MainActivity extends MyActivity {
         MenuInflater menuInflater = getMenuInflater();
         menuInflater.inflate(R.menu.main_activity_menu, menu);
 
-        MenuItem appInternInternetOffToggleMenuItem = menu.findItem(R.id.app_intern_internet_toggle);
-        appInternInternetOffToggleMenuItem.setVisible(!MyApp.userSkippedLogin);
+        if (MyApp.userSkippedLogin)
+            setMenuForUserSkippedLogin(menu);
+
+        MenuItem logoutMenuItem = menu.findItem(R.id.logout);
+        logoutMenuItem.setVisible(!MyApp.userSkippedLogin);
 
         MenuItem loginMenuItem = menu.findItem(R.id.login);
         loginMenuItem.setVisible(MyApp.userSkippedLogin);
 
-        MenuItem logoutMenuItem = menu.findItem(R.id.logout);
-        logoutMenuItem.setVisible(!MyApp.userSkippedLogin);
+        MenuItem appInternInternetOffToggleMenuItem = menu.findItem(R.id.app_intern_internet_toggle);
 
 
         if (MyApp.internetDisabledInternally)
@@ -391,13 +401,20 @@ public class MainActivity extends MyActivity {
         return super.onCreateOptionsMenu(menu);
     }
 
+    private void setMenuForUserSkippedLogin(Menu menu) {
+        MenuItem appInternInternetOffToggleMenuItem = menu.findItem(R.id.app_intern_internet_toggle);
+        appInternInternetOffToggleMenuItem.setVisible(false);
+        MenuItem sharedMenuItem = menu.findItem(R.id.shared);
+        sharedMenuItem.setVisible(false);
+    }
+
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         switch (item.getItemId()) {
-            case R.id.speed_test:
+            /*case R.id.speed_test:
                 Toast.makeText(this, "last speed recorded: " + MyApp.totalTime / 1000, Toast.LENGTH_SHORT).show();
                 reception();
-                return true;
+                return true;*/
             case R.id.app_intern_internet_toggle:
                 if (MyApp.internetDisabledInternally)
                     db.enableNetwork();

@@ -26,10 +26,10 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 
-import com.example.firebaseui_firestoreexample.LocationReminder;
-import com.example.firebaseui_firestoreexample.MainActivity;
+import com.example.firebaseui_firestoreexample.reminders.LocationReminder;
+import com.example.firebaseui_firestoreexample.activities.MainActivity;
 import com.example.firebaseui_firestoreexample.MyBroadcastReceiver;
-import com.example.firebaseui_firestoreexample.TimeReminder;
+import com.example.firebaseui_firestoreexample.reminders.TimeReminder;
 import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.DocumentReference;
@@ -45,7 +45,6 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
-import java.util.Random;
 import java.util.UUID;
 
 public class MyApp extends Application {
@@ -62,7 +61,6 @@ public class MyApp extends Application {
     public static HashMap<String, DocumentReference> timeReminders;
     public static HashMap<String, DocumentReference> locationReminders;
     private static boolean activityMainVisible;
-    private static boolean activityNewNoteVisible;
     private static boolean activityLoginVisible;
     private static boolean activitySettingsVisible;
     private static boolean activityEditNoteVisible;
@@ -213,19 +211,6 @@ public class MyApp extends Application {
 //           restart activity when
             addConnectivityListener();
         }, 5000);
-    }
-
-
-    public static boolean isActivityNewNoteVisible() {
-        return activityNewNoteVisible;
-    }
-
-    public static void activityNewNoteResumed() {
-        activityNewNoteVisible = true;
-    }
-
-    public static void activityNewNoteStopped() {
-        activityNewNoteVisible = false;
     }
 
     public static boolean isActivityLoginVisible() {

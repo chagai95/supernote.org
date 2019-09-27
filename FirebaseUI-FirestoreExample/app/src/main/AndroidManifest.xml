@@ -12,17 +12,14 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme"
         tools:ignore="AllowBackup,GoogleAppIndexingWarning">
-        <activity android:name=".LoginActivity"></activity>
-        <activity android:name=".SettingsActivity" />
-        <activity android:name=".TitleHistoryActivity" />
+        <activity android:name=".activities.LoginActivity"></activity>
+        <activity android:name=".activities.SettingsActivity" />
+        <activity android:name=".activities.TitleHistoryActivity" />
         <activity
-            android:name=".EditNoteActivity"
-            android:parentActivityName=".MainActivity" />
+            android:name=".activities.EditNoteActivity"
+            android:parentActivityName=".activities.MainActivity" />
         <activity
-            android:name=".NewNoteActivity"
-            android:parentActivityName=".MainActivity" />
-        <activity
-            android:name=".MainActivity"
+            android:name=".activities.MainActivity"
             android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

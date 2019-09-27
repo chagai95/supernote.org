@@ -1,4 +1,4 @@
-package com.example.firebaseui_firestoreexample;
+package com.example.firebaseui_firestoreexample.activities.adapters;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
@@ -9,6 +9,8 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.example.firebaseui_firestoreexample.R;
 
 import java.util.List;
 
@@ -22,7 +24,7 @@ public class TitleHistoryAdapter extends RecyclerView.Adapter<TitleHistoryAdapte
     private List<String> noteHistoryList;
 
     //getting the activity and String list with constructor
-    TitleHistoryAdapter(Context cOtherActivity, List<String> noteHistoryList) {
+    public TitleHistoryAdapter(Context cOtherActivity, List<String> noteHistoryList) {
         this.cOtherActivity = cOtherActivity;
         this.noteHistoryList = noteHistoryList;
     }
