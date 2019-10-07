@@ -59,6 +59,17 @@
             android:hint="type a username to add a friend"
             android:completionHint="select a username"/>
 
+        <Button
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:id="@+id/addFriendButton"
+            android:text="add username"/>
+        <Button
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:id="@+id/showFriends"
+            android:text="show friends list"/>
+
     </LinearLayout>
 
 </LinearLayout>

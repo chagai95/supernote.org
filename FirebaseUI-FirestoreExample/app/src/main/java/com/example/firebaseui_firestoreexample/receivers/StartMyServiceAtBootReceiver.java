@@ -1,8 +1,10 @@
-package com.example.firebaseui_firestoreexample;
+package com.example.firebaseui_firestoreexample.receivers;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+
+import com.example.firebaseui_firestoreexample.services.MyService;
 
 public class StartMyServiceAtBootReceiver extends BroadcastReceiver {
 

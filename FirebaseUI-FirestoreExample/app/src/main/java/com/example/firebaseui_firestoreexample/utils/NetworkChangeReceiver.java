@@ -6,13 +6,11 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.Intent;
-import android.telephony.TelephonyManager;
-import android.widget.Toast;
 
+import com.example.firebaseui_firestoreexample.MyApp;
 import com.example.firebaseui_firestoreexample.activities.EditNoteActivity;
 import com.example.firebaseui_firestoreexample.activities.LoginActivity;
 import com.example.firebaseui_firestoreexample.activities.MainActivity;
-import com.example.firebaseui_firestoreexample.MyActivityLifecycleCallbacks;
 import com.example.firebaseui_firestoreexample.activities.SettingsActivity;
 
 public class NetworkChangeReceiver extends BroadcastReceiver {
@@ -28,23 +26,23 @@ public class NetworkChangeReceiver extends BroadcastReceiver {
         if (!MyApp.internetDisabledInternally)
             if ("android.net.conn.CONNECTIVITY_CHANGE".equals(intent.getAction())) {
                 if (status == NetworkUtil.NETWORK_STATUS_NOT_CONNECTED) {
-                    MyApp.lastTrafficLightState = TrafficLight.OFFLINE;
+                    MyApp.currentTrafficLightState = TrafficLight.OFFLINE;
                 } else {
                     if (status == NetworkUtil.NETWORK_STATUS_MOBILE) {
-                        if (NetworkUtil.networkType == TelephonyManager.NETWORK_TYPE_EDGE) {
-                            MyApp.lastTrafficLightState = TrafficLight.MAYBE_CONNECTED;
-                            if (MyApp.autoInternInternetOffWhenE)
+                        NetworkUtil.connectionIsFast = NetworkUtil.fastConnection(NetworkUtil.networkType);
+                        if (!NetworkUtil.fastConnection(NetworkUtil.networkType)) {
+                            MyApp.currentTrafficLightState = TrafficLight.MAYBE_CONNECTED;
+                            if (MyApp.autoInternInternetOffWhenSlow)
                                 MyApp.internetDisabledInternally = true;
                         } else {
-                            MyApp.lastTrafficLightState = TrafficLight.ONLINE;
+                            MyApp.currentTrafficLightState = TrafficLight.ONLINE;
                             if (activity instanceof EditNoteActivity) MyApp.updateFromServer = true;
 //                      if(MyApp.updateLoadToCacheOnMobileData)
 //                      if (MyApp.isBackUpFailed()) MyApp.loadToCache();
                         }
 
                     } else {
-                        MyApp.lastTrafficLightState = TrafficLight.ONLINE;
-                        Toast.makeText(context, "back online wifi", Toast.LENGTH_SHORT).show();
+                        MyApp.currentTrafficLightState = TrafficLight.ONLINE;
                         if (activity instanceof EditNoteActivity) {
                             MyApp.updateFromServer = true;
                         }
@@ -84,4 +82,6 @@ public class NetworkChangeReceiver extends BroadcastReceiver {
 
         return null;
     }
+
+
 }

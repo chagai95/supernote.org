@@ -1,4 +1,4 @@
-package com.example.firebaseui_firestoreexample;
+package com.example.firebaseui_firestoreexample.utils;
 
 import android.annotation.TargetApi;
 import android.app.NotificationChannel;

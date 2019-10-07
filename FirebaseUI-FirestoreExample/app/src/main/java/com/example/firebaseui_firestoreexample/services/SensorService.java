@@ -1,4 +1,4 @@
-package com.example.firebaseui_firestoreexample;
+package com.example.firebaseui_firestoreexample.services;
 
 import android.app.Service;
 import android.content.Context;
@@ -6,8 +6,9 @@ import android.content.Intent;
 import android.os.IBinder;
 import android.util.Log;
 
+import com.example.firebaseui_firestoreexample.MyApp;
 import com.example.firebaseui_firestoreexample.activities.MainActivity;
-import com.example.firebaseui_firestoreexample.utils.MyApp;
+import com.example.firebaseui_firestoreexample.receivers.SensorRestarterBroadcastReceiver;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 

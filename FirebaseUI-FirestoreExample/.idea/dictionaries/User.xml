@@ -3,6 +3,7 @@
     <words>
       <w>autofill</w>
       <w>bytespersecond</w>
+      <w>cdma</w>
       <w>downspeed</w>
       <w>firebase</w>
       <w>firebaseui</w>
@@ -11,9 +12,14 @@
       <w>kbps</w>
       <w>kilobit</w>
       <w>mainact</w>
+      <w>mbps</w>
       <w>miliseconds</w>
       <w>reciever</w>
       <w>restarter</w>
+      <w>supernote</w>
+      <w>untrash</w>
+      <w>usernames</w>
+      <w>wcdma</w>
       <w>whatsapp</w>
     </words>
   </dictionary>

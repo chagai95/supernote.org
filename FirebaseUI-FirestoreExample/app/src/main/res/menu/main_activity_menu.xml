@@ -10,12 +10,12 @@
         android:title="logout"/>
     <item android:id="@+id/trash"
         android:title="trash"/>
-    <item android:id="@+id/shared"
+    <item android:id="@+id/shared_notes"
         android:title="shared"/>
     <item android:id="@+id/allNotes"
         android:title="allNotes"/>
     <item android:id="@+id/settings"
         android:title="settings"/>
     <item android:id="@+id/report_bug"
-        android:title="report_bug"/>
+        android:title="report bug"/>
 </menu>

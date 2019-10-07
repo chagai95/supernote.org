@@ -4,6 +4,7 @@ import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkInfo;
+import android.telephony.CellInfo;
 import android.telephony.TelephonyManager;
 import android.widget.Toast;
 
@@ -19,6 +20,10 @@ public class NetworkUtil {
      private static final int NETWORK_TYPE_WIFI = 30;
 
      public static int networkType;
+     public static int lastRegisteredNetworkType;
+     public static CellInfo lastRegisteredCellInfo;
+     public static boolean connectionIsFast;
+
 
     private static int getConnectivityStatus(Context context) {
         ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -30,12 +35,12 @@ public class NetworkUtil {
                 return TYPE_WIFI;
             }
 
-            /*if(activeNetwork.getType() == ConnectivityManager.TYPE_MOBILE){
+            if(activeNetwork.getType() == ConnectivityManager.TYPE_MOBILE){
                 TelephonyManager telephonyManager = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
 
                 networkType = Objects.requireNonNull(telephonyManager).getNetworkType();
-
-                if ((networkType == TelephonyManager.NETWORK_TYPE_HSDPA)) Toast.makeText(context, "3G enabled", Toast.LENGTH_SHORT).show();
+                lastRegisteredNetworkType = networkType;
+               /* if ((networkType == TelephonyManager.NETWORK_TYPE_HSDPA)) Toast.makeText(context, "3G enabled", Toast.LENGTH_SHORT).show();
                 else if ((networkType == TelephonyManager.NETWORK_TYPE_HSPAP)) Toast.makeText(context, "4G enabled", Toast.LENGTH_SHORT).show();
                 else if ((networkType == TelephonyManager.NETWORK_TYPE_EDGE)) Toast.makeText(context, "2G enabled", Toast.LENGTH_SHORT).show();
                 else if ((networkType == TelephonyManager.NETWORK_TYPE_LTE)) Toast.makeText(context, "LTE enabled", Toast.LENGTH_SHORT).show();
@@ -60,9 +65,9 @@ public class NetworkUtil {
 //                if ((networkType == TelephonyManager.NETWORK_TYPE_NR )     )Toast.makeText(context, "NETWORK_TYPE_NR = 20;", Toast.LENGTH_SHORT).show();
                 if ((networkType == TelephonyManager.NETWORK_TYPE_TD_SCDMA))Toast.makeText(context, "NETWORK_TYPE_TD_SCDMA ", Toast.LENGTH_SHORT).show();
                 if ((networkType == TelephonyManager.NETWORK_TYPE_UMTS )   )Toast.makeText(context, "NETWORK_TYPE_UMTS = 3;", Toast.LENGTH_SHORT).show();
-                if ((networkType == TelephonyManager.NETWORK_TYPE_UNKNOWN ))Toast.makeText(context, "NETWORK_TYPE_UNKNOWN =", Toast.LENGTH_SHORT).show();
+                if ((networkType == TelephonyManager.NETWORK_TYPE_UNKNOWN ))Toast.makeText(context, "NETWORK_TYPE_UNKNOWN =", Toast.LENGTH_SHORT).show();*/
                 return TYPE_MOBILE;
-            }*/
+            }
         }
         return TYPE_NOT_CONNECTED;
     }
@@ -79,6 +84,48 @@ public class NetworkUtil {
         return status;
     }
 
+    public static boolean fastConnection(int subType) {
+        switch (subType) {
+            case TelephonyManager.NETWORK_TYPE_1xRTT:
+                return false; // ~ 50-100 kbps NETWORK_TYPE_1xRTT
+            case TelephonyManager.NETWORK_TYPE_CDMA:
+                return false; // ~ 14-64 kbps
+            case TelephonyManager.NETWORK_TYPE_EDGE:
+                return false; // ~ 50-100 kbps NETWORK_TYPE_EDGE
+            case TelephonyManager.NETWORK_TYPE_EVDO_0:
+                return true; // ~ 400-1000 kbps
+            case TelephonyManager.NETWORK_TYPE_EVDO_A:
+                return true; // ~ 600-1400 kbps
+            case TelephonyManager.NETWORK_TYPE_GPRS:
+                return false; // ~ 100 kbps
+            case TelephonyManager.NETWORK_TYPE_HSDPA:
+                return true; // ~ 2-14 Mbps
+            case TelephonyManager.NETWORK_TYPE_HSPA:
+                return true; // ~ 700-1700 kbps
+            case TelephonyManager.NETWORK_TYPE_HSUPA:
+                return true; // ~ 1-23 Mbps
+            case TelephonyManager.NETWORK_TYPE_UMTS:
+                return true; // ~ 400-7000 kbps
+            /*
+             * Above API level 7, make sure to set android:targetSdkVersion
+             * to appropriate level to use these
+             */
+            case TelephonyManager.NETWORK_TYPE_EHRPD: // API level 11
+                return true; // ~ 1-2 Mbps
+            case TelephonyManager.NETWORK_TYPE_EVDO_B: // API level 9
+                return true; // ~ 5 Mbps
+            case TelephonyManager.NETWORK_TYPE_HSPAP: // API level 13
+                return true; // ~ 10-20 Mbps
+            case TelephonyManager.NETWORK_TYPE_IDEN: // API level 8
+                return false; // ~25 kbps
+            case TelephonyManager.NETWORK_TYPE_LTE: // API level 11
+                return true; // ~ 10+ Mbps
+            // Unknown
+            case TelephonyManager.NETWORK_TYPE_UNKNOWN:
+            default:
+                return false;
+        }
+    }
 }
 
 

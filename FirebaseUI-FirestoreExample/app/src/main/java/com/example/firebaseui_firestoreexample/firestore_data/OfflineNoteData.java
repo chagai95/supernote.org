@@ -1,4 +1,4 @@
-package com.example.firebaseui_firestoreexample.utils;
+package com.example.firebaseui_firestoreexample.firestore_data;
 
 import com.example.firebaseui_firestoreexample.Note;
 import com.google.firebase.firestore.DocumentReference;

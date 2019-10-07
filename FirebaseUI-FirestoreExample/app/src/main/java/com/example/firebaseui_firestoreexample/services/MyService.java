@@ -1,4 +1,4 @@
-package com.example.firebaseui_firestoreexample;
+package com.example.firebaseui_firestoreexample.services;
 
 import android.app.Service;
 import android.content.Intent;

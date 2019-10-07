@@ -11,15 +11,14 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.firebaseui_firestoreexample.Note;
 import com.example.firebaseui_firestoreexample.R;
-import com.example.firebaseui_firestoreexample.utils.MyApp;
-import com.example.firebaseui_firestoreexample.utils.OfflineNoteData;
 import com.firebase.ui.firestore.FirestoreRecyclerAdapter;
 import com.firebase.ui.firestore.FirestoreRecyclerOptions;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.ListenerRegistration;
+
+import java.util.Objects;
 
 
 public class NoteAdapter extends FirestoreRecyclerAdapter<Note, NoteAdapter.NoteHolder> {
@@ -38,33 +37,15 @@ public class NoteAdapter extends FirestoreRecyclerAdapter<Note, NoteAdapter.Note
     protected void onBindViewHolder(@NonNull NoteHolder holder, int i, @NonNull Note model) {
         holder.textViewTitle.setText(model.getTitle());
         holder.textViewDescription.setText(model.getDescription());
-        holder.textViewPriority.setText(String.valueOf(model.getPriority()));
     }
 
-    @SuppressWarnings("ConstantConditions")
     @NonNull
     @Override
     public NoteHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         View v = LayoutInflater.from(parent.getContext()).inflate(R.layout.note_item, parent, false);
 //      since I don't know how to get the position of the newly added note we (fow now) just put all notes
 //      every time this method is called in a map which basically means no duplicates.
-        for (int i = 0; i < getItemCount(); i++) {
-            DocumentSnapshot docSnapshot = getSnapshots().getSnapshot(i);
-            Note note = docSnapshot.toObject(Note.class);
-            DocumentReference documentReference = docSnapshot.getReference();
-            if(MyApp.allNotesOfflineNoteData.get(documentReference.getId())==null)
-                MyApp.allNotesOfflineNoteData.put(documentReference.getId(), new OfflineNoteData(documentReference));
-            OfflineNoteData offlineNoteData = MyApp.allNotesOfflineNoteData.get(documentReference.getId());
-            if(note.isKeepOffline()){
-                ListenerRegistration listenerRegistration = documentReference.addSnapshotListener((documentSnapshot, e) -> {
-                    if (e != null) {
-                        System.err.println("Listen failed: " + e);
-                    }
-                });
-                offlineNoteData.setListenerRegistration(listenerRegistration);
-            }
-        }
-        if(startAppAndCloseMainActivity){
+        if (startAppAndCloseMainActivity) {
             FirebaseFirestore.getInstance().collection("utils").document("NoteAdapter").update(
                     "NoteAdapter", FieldValue.arrayUnion(this.toString()));
             activity.finish();
@@ -72,30 +53,57 @@ public class NoteAdapter extends FirestoreRecyclerAdapter<Note, NoteAdapter.Note
         return new NoteHolder(v);
     }
 
-    void deleteItem(int position) {
-        getSnapshots().getSnapshot(position).getReference().delete();
+    public void deleteItem(int position) {
+        DocumentReference documentReference = getSnapshots().getSnapshot(position).getReference();
+        documentReference.collection("Reminders").get().addOnCompleteListener(task -> {
+            if (task.isSuccessful()) {
+                for (DocumentSnapshot documentSnapshot :
+                        Objects.requireNonNull(task.getResult()).getDocuments()) {
+                    documentSnapshot.getReference().delete();
+                }
+            }
+
+        });
+        documentReference.delete();
     }
 
     public void trashItem(int position) {
-        getSnapshots().getSnapshot(position).getReference().update("trash",true);
+        DocumentReference documentReference = getSnapshots().getSnapshot(position).getReference();
+        documentReference.collection("Reminders").get().addOnCompleteListener(task -> {
+            if (task.isSuccessful()) {
+                for (DocumentSnapshot documentSnapshot :
+                        Objects.requireNonNull(task.getResult()).getDocuments()) {
+                    documentSnapshot.getReference().update("trash", true);
+                }
+            }
+        });
+
+        documentReference.update("trash", true);
     }
 
     public void untrashItem(int position) {
-        getSnapshots().getSnapshot(position).getReference().update("trash",false);
-    }
+        DocumentReference documentReference = getSnapshots().getSnapshot(position).getReference();
+        documentReference.collection("Reminders").get().addOnCompleteListener(task -> {
+            if (task.isSuccessful()) {
+                for (DocumentSnapshot documentSnapshot :
+                        Objects.requireNonNull(task.getResult()).getDocuments()) {
+                    documentSnapshot.getReference().update("trash", false);
+                }
+            }
+        });
 
+        documentReference.update("trash", false);
+    }
 
 
     class NoteHolder extends RecyclerView.ViewHolder {
         TextView textViewTitle;
         TextView textViewDescription;
-        TextView textViewPriority;
 
         NoteHolder(@NonNull View itemView) {
             super(itemView);
             textViewTitle = itemView.findViewById(R.id.text_view_title);
             textViewDescription = itemView.findViewById(R.id.text_view_description);
-            textViewPriority = itemView.findViewById(R.id.text_view_priority);
 
             itemView.setOnClickListener(view -> {
                 int position = getAdapterPosition();

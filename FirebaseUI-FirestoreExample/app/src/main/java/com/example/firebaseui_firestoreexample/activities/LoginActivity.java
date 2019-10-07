@@ -11,7 +11,7 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.example.firebaseui_firestoreexample.CloudUser;
 import com.example.firebaseui_firestoreexample.R;
-import com.example.firebaseui_firestoreexample.utils.MyApp;
+import com.example.firebaseui_firestoreexample.MyApp;
 import com.example.firebaseui_firestoreexample.utils.TrafficLight;
 import com.firebase.ui.auth.AuthUI;
 import com.google.firebase.auth.FirebaseAuth;
@@ -112,13 +112,14 @@ public class LoginActivity extends MyActivity {
                 MyApp.internetDisabledInternally = false;
 
                 firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
+                MyApp.login();
                 db.collection("users").document(firebaseUser.getUid()).get().addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
                         DocumentSnapshot documentSnapshot = task.getResult();
                         assert documentSnapshot != null;
                         if (!documentSnapshot.exists())
                             db.collection("users").document(firebaseUser.getUid())
-                                    .set(new CloudUser(firebaseUser.getDisplayName() + firebaseUser.getUid()));
+                                    .set(new CloudUser(firebaseUser.getDisplayName() + firebaseUser.getUid(), firebaseUser.getUid()));
                     }
 
                 });
@@ -151,7 +152,7 @@ public class LoginActivity extends MyActivity {
 
         // add in MyApp and in NetworkChangeReciever for the traffic light
         MyApp.activityLoginResumed();
-        if (!onCreateCalled && MyApp.lastTrafficLightState != lastTrafficLightState)
+        if (!onCreateCalled && MyApp.currentTrafficLightState != lastTrafficLightState)
             recreate();
     }
 

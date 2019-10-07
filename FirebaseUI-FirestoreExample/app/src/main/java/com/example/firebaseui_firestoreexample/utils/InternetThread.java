@@ -1,10 +1,9 @@
-package com.example.firebaseui_firestoreexample;
+package com.example.firebaseui_firestoreexample.utils;
 
 import android.content.Context;
 import android.net.TrafficStats;
-import android.widget.Toast;
 
-import com.example.firebaseui_firestoreexample.utils.MyApp;
+import com.example.firebaseui_firestoreexample.MyApp;
 
 import java.io.InputStream;
 import java.net.URL;

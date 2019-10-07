@@ -1,11 +1,15 @@
 package com.example.firebaseui_firestoreexample.activities;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.graphics.Color;
 import android.location.Location;
+import android.location.LocationManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -13,25 +17,34 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.View;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
-import android.widget.NumberPicker;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.DialogFragment;
 
 import com.example.firebaseui_firestoreexample.CloudUser;
-import com.example.firebaseui_firestoreexample.MyDatePickerFragment;
+import com.example.firebaseui_firestoreexample.firestore_data.CloudUserData;
+import com.example.firebaseui_firestoreexample.firestore_data.LocationReminderData;
+import com.example.firebaseui_firestoreexample.utils.MyDatePickerFragment;
 import com.example.firebaseui_firestoreexample.Note;
 import com.example.firebaseui_firestoreexample.R;
+import com.example.firebaseui_firestoreexample.firestore_data.UserReminderData;
 import com.example.firebaseui_firestoreexample.reminders.LocationReminder;
-import com.example.firebaseui_firestoreexample.utils.MyApp;
-import com.example.firebaseui_firestoreexample.utils.OfflineNoteData;
+import com.example.firebaseui_firestoreexample.reminders.UserReminder;
+import com.example.firebaseui_firestoreexample.MyApp;
+import com.example.firebaseui_firestoreexample.firestore_data.OfflineNoteData;
 import com.example.firebaseui_firestoreexample.utils.TrafficLight;
 import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.CollectionReference;
@@ -47,6 +60,8 @@ import com.google.firebase.firestore.Source;
 
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.Objects;
 
 import static android.widget.Toast.LENGTH_SHORT;
@@ -55,7 +70,6 @@ import static android.widget.Toast.makeText;
 public class EditNoteActivity extends MyActivity {
     private EditText editTextTitle;
     private EditText editTextDescription;
-    private NumberPicker numberPickerPriority;
 
     private DocumentReference documentRef;
     public static ListenerRegistration registration;
@@ -74,6 +88,16 @@ public class EditNoteActivity extends MyActivity {
 
     AlertDialog alertDialogForSharingWithAnotherUser;
     private boolean newNote;
+    private LinkedList<AlertDialog> alertList;
+
+
+    AlertDialog addReminderAlertDialog = null;
+    boolean firstOpenSpinner = true;
+
+    // key is the username not user id!
+    HashMap<String, CloudUserData> notifyUserSuggestions = new HashMap<>();
+    ArrayList<String> sharedUsernames = new ArrayList<>();
+
 
 //    private int cursor;
 //    private boolean changeCursorPositionBack;
@@ -85,8 +109,14 @@ public class EditNoteActivity extends MyActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_edit_note);
 
+//        SwipeRefreshLayout swipeRefreshLayout = findViewById(R.id.pullToRefreshEditNoteActivity);
+//        swipeToRefresh(swipeRefreshLayout);
+
+        notifyUserSuggestions.put(MyApp.myCloudUserData.getCloudUser().getUsername(), MyApp.myCloudUserData);
+
         Objects.requireNonNull(getSupportActionBar()).setHomeAsUpIndicator(R.drawable.ic_close); // added Objects.requireNonNull to avoid warning
 
+        alertList = new LinkedList<>();
         onCreateCalled = true;
 
         editTextTitle = findViewById(R.id.edit_text_title);
@@ -97,23 +127,24 @@ public class EditNoteActivity extends MyActivity {
             return false;
         });
         editTextDescription = findViewById(R.id.edit_text_description);
-        numberPickerPriority = findViewById(R.id.number_picker_priority);
 
 
         newNote = getIntent().getBooleanExtra("newNote", false);
         if (newNote) {
             setTitle("Add note");
             editTextDescription.requestFocus();
+            InputMethodManager inputMethodManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+            inputMethodManager.toggleSoftInput(InputMethodManager.SHOW_FORCED, 0);
             CollectionReference notesCollRef = FirebaseFirestore.getInstance()
                     .collection("notes");
-            notesCollRef.add(new Note("", "", 1, new Timestamp(new Date()), MyApp.uid))
+            notesCollRef.add(new Note("", "", new Timestamp(new Date()), MyApp.myCloudUserData.getCloudUser().getUid()))
                     .addOnCompleteListener(task -> {
                         if (task.isSuccessful()) {
                             DocumentReference documentReference = task.getResult();
                             assert documentReference != null;
                             documentRef = documentReference;
                             offlineNoteData = new OfflineNoteData(documentReference);
-                            MyApp.allNotesOfflineNoteData.put(documentReference.getId(), offlineNoteData);
+                            MyApp.allNotes.put(documentReference.getId(), offlineNoteData);
 
                             if (isNetworkAvailable() && !MyApp.internetDisabledInternally)
                                 setNoteWithConnection();
@@ -124,7 +155,7 @@ public class EditNoteActivity extends MyActivity {
                     });
         } else {
             String noteID = Objects.requireNonNull(getIntent().getStringExtra("noteID"));
-            offlineNoteData = Objects.requireNonNull(MyApp.allNotesOfflineNoteData.get(noteID));
+            offlineNoteData = Objects.requireNonNull(MyApp.allNotes.get(noteID));
             documentRef = offlineNoteData.getDocumentReference();
             setTitle("Edit note");
             editTextTitle.setCursorVisible(false);
@@ -133,10 +164,26 @@ public class EditNoteActivity extends MyActivity {
 
         textWatchers();
 
+        loadSharedUsers();
 
-        numberPickerPriority.setMinValue(1);
-        numberPickerPriority.setMaxValue(10);
+    }
 
+    private void loadSharedUsers() {
+        if (!newNote)
+            for (String s :
+                    offlineNoteData.getNote().getShared()) {
+                db.collection("users").document(s).get().addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        DocumentSnapshot documentSnapshot = task.getResult();
+                        assert documentSnapshot != null;
+                        CloudUser cloudUser = documentSnapshot.toObject(CloudUser.class);
+                        assert cloudUser != null;
+                        notifyUserSuggestions.put(cloudUser.getUsername(), new CloudUserData(cloudUser, documentSnapshot.getReference()));
+                        if (!sharedUsernames.contains(cloudUser.getUsername()))
+                            sharedUsernames.add(cloudUser.getUsername());
+                    }
+                });
+            }
     }
 
     private void textWatchers() {
@@ -199,7 +246,7 @@ public class EditNoteActivity extends MyActivity {
                             Note note = Objects.requireNonNull(task.getResult()).toObject(Note.class);
                             assert note != null;
                             offlineNoteData.setNote(note); // saving to enable quicker loading or pre-loading.
-                            documentRef.collection(MyApp.getDeviceID(c) + MyApp.uid).add(note.newNoteVersion());
+                            documentRef.collection(MyApp.getDeviceID(c) + MyApp.myCloudUserData.getCloudUser().getUid()).add(note.newNoteVersion());
                         }
                     });
 
@@ -220,9 +267,10 @@ public class EditNoteActivity extends MyActivity {
 
             @Override
             public void afterTextChanged(Editable editable) {
-                documentRef.update(
-                        "description", editable.toString()
-                );
+                if (documentRef != null)
+                    documentRef.update(
+                            "description", editable.toString()
+                    );
             }
         };
         editTextDescription.addTextChangedListener(textWatcherDescription);
@@ -247,14 +295,34 @@ public class EditNoteActivity extends MyActivity {
 
         alert.setPositiveButton("Server data", (dialog, whichButton) -> {
             editTextTitle.setText(serverData);
+//            changing the history in case the main note history is not yet merged with a different devices note history
+            documentRef.update("history", FieldValue.arrayUnion(serverData)).addOnSuccessListener(aVoid -> successfulUpload())
+                    .addOnFailureListener(this::unsuccessfulUpload);
+            for (AlertDialog alertDialog :
+                    alertList) {
+                alertDialog.cancel();
+            }
             recreate();
         });
 
         alert.setNegativeButton("Local data", (dialog, whichButton) -> {
             documentRef.update("title", editTextTitle.getText().toString());
+
+            for (AlertDialog alertDialog :
+                    alertList) {
+                alertDialog.cancel();
+            }
             recreate();
         });
-        alert.show();
+        AlertDialog alertDialog = alert.show();
+        alertList.add(alertDialog);
+        Button btnPositive = alertDialog.getButton(AlertDialog.BUTTON_POSITIVE);
+        Button btnNegative = alertDialog.getButton(AlertDialog.BUTTON_NEGATIVE);
+
+        LinearLayout.LayoutParams layoutParams = (LinearLayout.LayoutParams) btnPositive.getLayoutParams();
+        layoutParams.weight = 10;
+        btnPositive.setLayoutParams(layoutParams);
+        btnNegative.setLayoutParams(layoutParams);
     }
 
     @Override
@@ -267,12 +335,18 @@ public class EditNoteActivity extends MyActivity {
 
         MenuItem appInternInternetOffToggleMenuItem = menu.findItem(R.id.app_intern_internet_toggle_in_note_activity);
         if (MyApp.internetDisabledInternally)
-            appInternInternetOffToggleMenuItem.setTitle("activate internet in App");
+            appInternInternetOffToggleMenuItem.setTitle("go online");
         else
-            appInternInternetOffToggleMenuItem.setTitle("deactivate internet in App");
+            appInternInternetOffToggleMenuItem.setTitle("go offline");
+
+        MenuItem shareWithAnotherUserMenuItem = menu.findItem(R.id.share_with_another_user);
+        if (!isNetworkAvailable() || MyApp.internetDisabledInternally)
+            shareWithAnotherUserMenuItem.setTitle("share with friends");
+
         return super.onCreateOptionsMenu(menu);
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.M)
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         switch (item.getItemId()) {
@@ -292,16 +366,15 @@ public class EditNoteActivity extends MyActivity {
                 recreate();
                 return true;
             case R.id.action_add_reminder:
-                showDatePicker("", "");
+                addReminder();
+                return true;
+            case R.id.action_show_reminder:
+                Intent intent = new Intent(EditNoteActivity.this, RemindersActivity.class);
+                intent.putExtra("noteID", documentRef.getId());
+                startActivity(intent);
                 return true;
             case R.id.share_with_another_user:
                 shareWithAnotherUser();
-                return true;
-            case R.id.location_reminder:
-                createAlertForLocationReminder();
-                return true;
-            case R.id.action_add_whatsappreminder:
-                addWhatsappReminder();
                 return true;
             case R.id.keep_listener_on:
                 keepListenerOn();
@@ -317,18 +390,162 @@ public class EditNoteActivity extends MyActivity {
         }
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.M)
+    private void addReminder() {
+        AlertDialog.Builder alert = new AlertDialog.Builder(c);
+
+        alert.setTitle("choose users:");
+
+
+        final String[] shared = sharedUsernames.toArray(new String[0]);
+        final String[] sharedAndMe = new String[shared.length + 1];
+        System.arraycopy(shared, 0, sharedAndMe, 1, shared.length);
+        sharedAndMe[0] = "me";
+        boolean[] checkedItems = new boolean[sharedAndMe.length];
+        checkedItems[0] = true;
+        alert.setMultiChoiceItems(sharedAndMe, checkedItems, (dialog, which, isChecked) -> checkedItems[which] = isChecked);
+
+        LinearLayout layout = new LinearLayout(c);
+        layout.setOrientation(LinearLayout.HORIZONTAL);
+
+        TextView textView = new TextView(c);
+        textView.setText("choose reminder type: ");
+        layout.addView(textView);
+
+
+        Spinner dropdownTimeType = new Spinner(c);
+//      create a list of items for the spinner.
+        String[] timeType = new String[]{"time", "location", "user", "whatsapp"};
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, timeType);
+        dropdownTimeType.setAdapter(adapter);
+
+        layout.addView(dropdownTimeType);
+
+        firstOpenSpinner = true;
+        dropdownTimeType.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @RequiresApi(api = Build.VERSION_CODES.M)
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                if (firstOpenSpinner)
+                    firstOpenSpinner = false;
+                else {
+                    showReminderDialog(timeType[position], getUsernames(sharedAndMe, checkedItems), notifyUserSuggestions);
+                    if (addReminderAlertDialog != null)
+                        addReminderAlertDialog.cancel();
+                }
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+
+            }
+        });
+
+
+        alert.setView(layout);
+
+
+        alert.setPositiveButton("continue", (dialog, whichButton) -> {
+            showReminderDialog(dropdownTimeType.getSelectedItem().toString(), getUsernames(sharedAndMe, checkedItems), notifyUserSuggestions);
+        });
+
+        alert.setNegativeButton("cancel", (dialog, whichButton) -> {
+            //cancel
+        });
+
+        addReminderAlertDialog = alert.create();
+        addReminderAlertDialog.show();
+        Button btnPositive = addReminderAlertDialog.getButton(AlertDialog.BUTTON_POSITIVE);
+        Button btnNegative = addReminderAlertDialog.getButton(AlertDialog.BUTTON_NEGATIVE);
+
+        LinearLayout.LayoutParams layoutParams = (LinearLayout.LayoutParams) btnPositive.getLayoutParams();
+        layoutParams.weight = 10;
+        btnPositive.setLayoutParams(layoutParams);
+        btnNegative.setLayoutParams(layoutParams);
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.M)
+    private void showReminderDialog(String type, ArrayList<String> usernames, HashMap<String, CloudUserData> userSuggestions) {
+
+        switch (type) {
+            case "location":
+                createAlertForLocationReminder(usernames, userSuggestions);
+                break;
+            case "user":
+                createAlertForUserReminder(usernames, userSuggestions);
+                break;
+            case "whatsapp":
+                addWhatsappReminder(usernames, userSuggestions);
+                break;
+            default:
+                showDatePicker("", "", usernames, userSuggestions);
+                break;
+        }
+    }
+
+    private ArrayList<String> getUsernames(String[] sharedAndMe, boolean[] checkedItems) {
+        ArrayList<String> usernames = new ArrayList<>();
+        for (int i = 1; i < sharedAndMe.length; i++) {
+            if (checkedItems[i])
+                usernames.add(sharedAndMe[i]);
+        }
+        if (checkedItems[0])
+            usernames.add(MyApp.myCloudUserData.getCloudUser().getUsername());
+        return usernames;
+    }
+
+
     private void shareWithAnotherUser() {
         AlertDialog.Builder alert = new AlertDialog.Builder(c);
         alert.setTitle("Share note");
         if (!isNetworkAvailable() || MyApp.internetDisabledInternally)
-            alert.setMessage("no internet - possibly showing only users from friends list");
+            alert.setTitle("Share note: \n" +
+                    "no internet - possibly suggesting only users from friends list");
 
-        final AutoCompleteTextView addUser = new AutoCompleteTextView(c);
-        addUser.setHint("type a username to share with a user");
-        addUser.setCompletionHint("select a username");
-        alert.setView(addUser);
+        final String[] shared = sharedUsernames.toArray(new String[0]);
+        boolean[] checkedItems = new boolean[shared.length];
+        for (int i = 0; i < checkedItems.length; i++) {
+            checkedItems[i] = true;
+        }
+        alert.setMultiChoiceItems(shared, checkedItems, (dialog, which, isChecked) -> {
+            if (!isChecked) {
+                CloudUserData cloudUserData = notifyUserSuggestions.get(shared[which]);
+                sharedUsernames.remove(shared[which]);
+
+                assert cloudUserData != null;
+                documentRef.get().addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        DocumentSnapshot documentSnapshot = task.getResult();
+                        assert documentSnapshot != null;
+                        Note note = documentSnapshot.toObject(Note.class);
+                        assert note != null;
+                        ArrayList<String> sharedIDs = note.getShared();
+                        sharedIDs.remove(cloudUserData.getCloudUser().getUid());
+                        documentRef.update("shared", sharedIDs);
+                    }
+
+                });
+            } else {
+                CloudUserData newUserCloudUserData = notifyUserSuggestions.get(shared[which]);
+                assert newUserCloudUserData != null;
+                documentRef.update(
+                        "shared", FieldValue.arrayUnion(newUserCloudUserData.getCloudUser().getUid()))
+                        .addOnSuccessListener(aVoid -> {
+                            sharedUsernames.add(shared[which]);
+                            notifyUserSuggestions.put(shared[which], newUserCloudUserData);
+                            Toast.makeText(this, "note shared with " + shared[which], Toast.LENGTH_LONG).show();
+                        });
+            }
+        });
+
+        final AutoCompleteTextView autoCompleteTextView = new AutoCompleteTextView(c);
+        autoCompleteTextView.setHint("type a username to share with a user");
+        autoCompleteTextView.setCompletionHint("select a username");
+        alert.setView(autoCompleteTextView);
 
         CollectionReference userCollRef;
+        HashMap<String, CloudUserData> userSuggestions;
+        userSuggestions = new HashMap<>();
         ArrayList<String> usernameSuggestions;
         usernameSuggestions = new ArrayList<>();
         userCollRef = db.collection("users");
@@ -340,50 +557,57 @@ public class EditNoteActivity extends MyActivity {
                         querySnapshot.getDocuments()) {
                     CloudUser cloudUser = documentSnapshot.toObject(CloudUser.class);
                     assert cloudUser != null;
-                    usernameSuggestions.add(cloudUser.getUsername());
+                    userSuggestions.put(cloudUser.getUsername(), new CloudUserData(cloudUser, documentSnapshot.getReference()));
+                    if (!usernameSuggestions.contains(cloudUser.getUsername()))
+                        usernameSuggestions.add(cloudUser.getUsername());
                 }
-                usernameSuggestions.remove(MyApp.username);
+                userSuggestions.remove(MyApp.myCloudUserData.getCloudUser().getUsername());
+                usernameSuggestions.remove(MyApp.myCloudUserData.getCloudUser().getUsername());
             }
         });
 
-        MyApp.userDocumentRef.get().addOnCompleteListener(task -> {
-            if (task.isSuccessful()) {
-                DocumentSnapshot documentSnapshot = task.getResult();
-                assert documentSnapshot != null;
-                CloudUser cloudUser = documentSnapshot.toObject(CloudUser.class);
-                assert cloudUser != null;
-                for (String friend :
-                        cloudUser.getFriends()) {
-                    if (!usernameSuggestions.contains(friend))
-                        usernameSuggestions.add(friend);
-                }
+        for (CloudUserData cloudUserData :
+                MyApp.friends.values()) {
+            if (!usernameSuggestions.contains(cloudUserData.getCloudUser().getUsername())) {
+                userSuggestions.put(cloudUserData.getCloudUser().getUsername(), cloudUserData);
+                if (!usernameSuggestions.contains(cloudUserData.getCloudUser().getUsername()))
+                    usernameSuggestions.add(cloudUserData.getCloudUser().getUsername());
             }
-        });
+        }
 
 
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, usernameSuggestions);
-        addUser.setAdapter(adapter);
-        addUser.setOnItemClickListener((parent, view, position, id) -> {
-            String newUser = (String) parent.getItemAtPosition(position);
+        autoCompleteTextView.setAdapter(adapter);
+        autoCompleteTextView.setOnItemClickListener((parent, view, position, id) -> {
+            String newUserUsername = (String) parent.getItemAtPosition(position);
+            CloudUserData newUserCloudUserData = userSuggestions.get(newUserUsername);
+            assert newUserCloudUserData != null;
             documentRef.update(
-                    "shared", FieldValue.arrayUnion(newUser))
+                    "shared", FieldValue.arrayUnion(newUserCloudUserData.getCloudUser().getUid()))
                     .addOnSuccessListener(aVoid -> {
-                        Toast.makeText(this, "note shared with " + newUser, Toast.LENGTH_LONG).show();
-                        addUser.setText("");
+                        sharedUsernames.add(newUserUsername);
+                        notifyUserSuggestions.put(newUserUsername, newUserCloudUserData);
+                        Toast.makeText(this, "note shared with " + newUserUsername, Toast.LENGTH_LONG).show();
                         alertDialogForSharingWithAnotherUser.cancel();
                     });
+            if (!isNetworkAvailable() || MyApp.internetDisabledInternally) {
+                Toast.makeText(this, "note will be shared with: " + newUserUsername + " when internet is available", Toast.LENGTH_LONG).show();
+                alertDialogForSharingWithAnotherUser.cancel();
+            }
         });
 
         alertDialogForSharingWithAnotherUser = alert.show();
     }
 
 
-    public void showDatePicker(String number, String message) {
-        DialogFragment newFragment = new MyDatePickerFragment(documentRef, this, number, message);
+    public void showDatePicker(String number, String message, ArrayList<String> usernames, HashMap<String, CloudUserData> userSuggestions) {
+        DialogFragment newFragment = new MyDatePickerFragment(documentRef, this, number, message, usernames, userSuggestions);
         newFragment.show(getSupportFragmentManager(), "date picker");
     }
 
-    private void createAlertForLocationReminder() {
+    @SuppressLint("SetTextI18n")
+    @RequiresApi(api = Build.VERSION_CODES.M)
+    private void createAlertForLocationReminder(ArrayList<String> usernames, HashMap<String, CloudUserData> userSuggestions) {
         AlertDialog.Builder alert = new AlertDialog.Builder(this);
         LinearLayout layout = new LinearLayout(c);
         layout.setOrientation(LinearLayout.VERTICAL);
@@ -397,6 +621,27 @@ public class EditNoteActivity extends MyActivity {
         final EditText locationEditText = new EditText(c);
         locationEditText.setHint("write coordinates here");
         layout.addView(locationEditText); // Another add method
+
+        // Add another TextView here for the message label
+        final Button locationHereButton = new Button(c);
+        locationHereButton.setText("your location");
+        locationHereButton.setOnClickListener(v -> {
+            LocationManager locationManager = (LocationManager) c.getSystemService(LOCATION_SERVICE);
+            if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                // TODO: Consider calling
+                //    Activity#requestPermissions
+                // here to request the missing permissions, and then overriding
+                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                //                                          int[] grantResults)
+                // to handle the case where the user grants the permission. See the documentation
+                // for Activity#requestPermissions for more details.
+                return;
+            }
+            Location location = locationManager.getLastKnownLocation("gps");
+            locationEditText.setText(location.getLatitude() + ", " + location.getLongitude());
+
+        });
+        layout.addView(locationHereButton); // Another add method
 
         alert.setTitle("Location Reminder");
         alert.setMessage("");
@@ -419,12 +664,15 @@ public class EditNoteActivity extends MyActivity {
             location.setLatitude(locationLatitude);
             location.setLongitude(locationLongitude);
 
+            LocationReminder locationReminder = new LocationReminder(radiusDouble);
+            locationReminder.setGeoPoint(new GeoPoint(location.getLatitude(), location.getLongitude()));
+            locationReminder.setNotifyUsers(getUserIDs(usernames, userSuggestions));
             documentRef.collection("Reminders")
-                    .add(new LocationReminder(new GeoPoint(location.getLatitude(), location.getLongitude()), radiusDouble))
+                    .add(locationReminder)
                     .addOnCompleteListener(task -> {
                         if (task.isSuccessful()) {
-                            MyApp.locationReminders.put(Objects.requireNonNull(task.getResult()).getId(), task.getResult());
-//                    MyApp.addReminderToLocationManager(task.getResult().get);
+                            MyApp.locationReminders.put(Objects.requireNonNull(task.getResult()).getId(),
+                                    new LocationReminderData(task.getResult(), locationReminder));
                         }
                     });
 
@@ -433,11 +681,130 @@ public class EditNoteActivity extends MyActivity {
         alert.setNegativeButton("Cancel", (dialog, whichButton) -> {
             // Canceled.
         });
-        alert.show();
+        AlertDialog alertDialog = alert.show();
+        Button btnPositive = alertDialog.getButton(AlertDialog.BUTTON_POSITIVE);
+        Button btnNegative = alertDialog.getButton(AlertDialog.BUTTON_NEGATIVE);
+
+        LinearLayout.LayoutParams layoutParams = (LinearLayout.LayoutParams) btnPositive.getLayoutParams();
+        layoutParams.weight = 10;
+        btnPositive.setLayoutParams(layoutParams);
+        btnNegative.setLayoutParams(layoutParams);
 
     }
 
-    private void addWhatsappReminder() {
+    private ArrayList<String> getUserIDs(ArrayList<String> usernames, HashMap<String, CloudUserData> userSuggestions) {
+        ArrayList<String> userIDs;
+        userIDs = new ArrayList<>();
+        for (String s :
+                usernames) {
+            CloudUserData cloudUserData = userSuggestions.get(s);
+            if (cloudUserData != null)
+                userIDs.add(cloudUserData.getCloudUser().getUid());
+        }
+        return userIDs;
+    }
+
+    private void createAlertForUserReminder(ArrayList<String> usernames, HashMap<String, CloudUserData> userSuggestionsNotifyUser) {
+        AlertDialog.Builder alert = new AlertDialog.Builder(this);
+        LinearLayout layout = new LinearLayout(c);
+        layout.setOrientation(LinearLayout.VERTICAL);
+
+        // Add a TextView here for the number label, as noted in the comments
+        final EditText radiusEditText = new EditText(c);
+        radiusEditText.setHint("write the radius here");
+        layout.addView(radiusEditText); // Notice this is an add method
+
+        final AutoCompleteTextView addUserAutoCompleteTextView = new AutoCompleteTextView(c);
+        addUserAutoCompleteTextView.setHint("type a username to share with a user");
+        addUserAutoCompleteTextView.setCompletionHint("select a username");
+        layout.addView(addUserAutoCompleteTextView); // Another add method
+
+        CollectionReference userCollRef;
+        ArrayList<CloudUser> userSuggestions;
+        ArrayList<String> usernameSuggestions;
+        usernameSuggestions = new ArrayList<>();
+        userSuggestions = new ArrayList<>();
+        userCollRef = db.collection("users");
+        userCollRef.get().addOnCompleteListener(task -> {
+            if (task.isSuccessful()) {
+                QuerySnapshot querySnapshot = task.getResult();
+                assert querySnapshot != null;
+                for (DocumentSnapshot documentSnapshot :
+                        querySnapshot.getDocuments()) {
+                    CloudUser cloudUser = documentSnapshot.toObject(CloudUser.class);
+                    assert cloudUser != null;
+                    userSuggestions.add(cloudUser);
+                    usernameSuggestions.add(cloudUser.getUsername());
+                }
+                userSuggestions.remove(MyApp.myCloudUserData.getCloudUser());
+                usernameSuggestions.remove(MyApp.myCloudUserData.getCloudUser().getUsername());
+            }
+        });
+
+        MyApp.myCloudUserData.getDocumentReference().get().addOnCompleteListener(task -> {
+            if (task.isSuccessful()) {
+                DocumentSnapshot documentSnapshot = task.getResult();
+                assert documentSnapshot != null;
+                CloudUser cloudUser = documentSnapshot.toObject(CloudUser.class);
+                assert cloudUser != null;
+                for (String friend :
+                        cloudUser.getFriends()) {
+                    if (!usernameSuggestions.contains(friend))
+                        usernameSuggestions.add(friend);
+                }
+            }
+        });
+
+
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, usernameSuggestions);
+        addUserAutoCompleteTextView.setAdapter(adapter);
+
+
+        alert.setTitle("User Reminder");
+        alert.setMessage("");
+        alert.setView(layout); // Again this is a set method, not add
+
+        //only works once for some reason
+        alert.setPositiveButton("continue", (dialog, whichButton) -> {
+            String radiusString = radiusEditText.getText().toString();
+
+            double radiusDouble = Double.parseDouble(radiusString);
+            String username = addUserAutoCompleteTextView.getText().toString();
+            int index = usernameSuggestions.indexOf(username);
+            String userID = userSuggestions.get(index).getUid();
+            UserReminder userReminder = new UserReminder(
+                    userID
+                    , radiusDouble);
+            userReminder.setNotifyUsers(getUserIDs(usernames, userSuggestionsNotifyUser));
+            documentRef.collection("Reminders")
+                    .add(userReminder)
+                    .addOnCompleteListener(task -> {
+                        if (task.isSuccessful()) {
+                            // using the username variable in a listener scope might be problematic - everywhere.
+                            // the solution will be to get the object from the document snapshot
+                            MyApp.locationReminders.put(Objects.requireNonNull(task.getResult()).getId(),
+                                    new UserReminderData(task.getResult(), userReminder));
+                            Toast.makeText(this, "user reminder added with user: " + addUserAutoCompleteTextView.getText().toString(), Toast.LENGTH_LONG).show();
+                        }
+                    });
+
+        });
+
+        alert.setNegativeButton("Cancel", (dialog, whichButton) -> {
+            // Canceled.
+        });
+        AlertDialog alertDialog = alert.show();
+        Button btnPositive = alertDialog.getButton(AlertDialog.BUTTON_POSITIVE);
+        Button btnNegative = alertDialog.getButton(AlertDialog.BUTTON_NEGATIVE);
+
+        LinearLayout.LayoutParams layoutParams = (LinearLayout.LayoutParams) btnPositive.getLayoutParams();
+        layoutParams.weight = 10;
+        btnPositive.setLayoutParams(layoutParams);
+        btnNegative.setLayoutParams(layoutParams);
+
+    }
+
+    private void addWhatsappReminder(ArrayList<String> usernames, HashMap<String, CloudUserData> userSuggestions) {
         AlertDialog.Builder alert = new AlertDialog.Builder(this);
         LinearLayout layout = new LinearLayout(c);
         layout.setOrientation(LinearLayout.VERTICAL);
@@ -458,15 +825,20 @@ public class EditNoteActivity extends MyActivity {
 
         //only works once for some reason
         alert.setPositiveButton("Ok", (dialog, whichButton) -> {
-            Log.i("AlertDialog", "TextEntry 1 Entered " + numberEditText.getText().toString());
-            Log.i("AlertDialog", "TextEntry 2 Entered " + messageEditText.getText().toString());
-            showDatePicker(numberEditText.getText().toString(), messageEditText.getText().toString());
+            showDatePicker(numberEditText.getText().toString(), messageEditText.getText().toString(), usernames, userSuggestions);
         });
 
         alert.setNegativeButton("Cancel", (dialog, whichButton) -> {
             // Canceled.
         });
-        alert.show();
+        AlertDialog alertDialog = alert.show();
+        Button btnPositive = alertDialog.getButton(AlertDialog.BUTTON_POSITIVE);
+        Button btnNegative = alertDialog.getButton(AlertDialog.BUTTON_NEGATIVE);
+
+        LinearLayout.LayoutParams layoutParams = (LinearLayout.LayoutParams) btnPositive.getLayoutParams();
+        layoutParams.weight = 10;
+        btnPositive.setLayoutParams(layoutParams);
+        btnNegative.setLayoutParams(layoutParams);
     }
 
     @SuppressWarnings("unused")
@@ -511,11 +883,17 @@ public class EditNoteActivity extends MyActivity {
             int checkIfOneBigAssWord = description.substring(0, titleLength).lastIndexOf(" ");
             if (checkIfOneBigAssWord <= 0)
                 checkIfOneBigAssWord = 40;
-            if (shortEnough)
+            if (shortEnough) {
                 documentRef.update("title", description);
-            else
-                documentRef.update("title", description
-                        .substring(0, checkIfOneBigAssWord));
+                documentRef.update("history", FieldValue.arrayUnion(description)).addOnSuccessListener(aVoid -> successfulUpload())
+                        .addOnFailureListener(this::unsuccessfulUpload);
+            } else {
+                documentRef.update("title", description.substring(0, checkIfOneBigAssWord));
+                documentRef.update("history", FieldValue.arrayUnion(description.substring(0, checkIfOneBigAssWord)))
+                        .addOnSuccessListener(aVoid -> successfulUpload())
+                        .addOnFailureListener(this::unsuccessfulUpload);
+            }
+
 
         }
         if (registration != null)
@@ -546,7 +924,7 @@ public class EditNoteActivity extends MyActivity {
     protected void onResume() {
         super.onResume();
         MyApp.activityEditNoteResumed();
-        if (!onCreateCalled && MyApp.lastTrafficLightState != lastTrafficLightState)
+        if (!onCreateCalled && MyApp.currentTrafficLightState != lastTrafficLightState)
             recreate();
 
         if (!newNote) {
@@ -621,7 +999,7 @@ public class EditNoteActivity extends MyActivity {
 //                        and we can set the listener directly.
                     if (offlineNoteData.getLastKnownNoteHistoryListSize() != -1) {
 //                            getting the unique device history list - this has no use online so we can just call it from the cache.
-                        documentRef.collection(MyApp.getDeviceID(c) + MyApp.uid).orderBy("created", Query.Direction.ASCENDING).get(Source.CACHE).addOnCompleteListener(taskOfflineHistory -> {
+                        documentRef.collection(MyApp.getDeviceID(c) + MyApp.myCloudUserData.getCloudUser().getUid()).orderBy("created", Query.Direction.ASCENDING).get(Source.CACHE).addOnCompleteListener(taskOfflineHistory -> {
                             if (taskOfflineHistory.isSuccessful()) {
                                 ArrayList<DocumentSnapshot> deviceHistoryList = (ArrayList<DocumentSnapshot>) Objects.requireNonNull(taskOfflineHistory.getResult()).getDocuments();
 //                                    if the size of the main note history list has changed we want to check if the title is not coincidentally the same and then
@@ -688,18 +1066,26 @@ public class EditNoteActivity extends MyActivity {
                     editTextDescription.setTextColor(Color.BLACK);
 //                    hasPendingWrites is important because it keeps the server in it's place.
                     if (!documentSnapshot.getMetadata().hasPendingWrites()) {
-                        if (!note.getTitle().equals(editTextTitle.getText().toString())) {
-                            editTextTitle.removeTextChangedListener(textWatcherTitle);
-                            editTextTitle.setText(note.getTitle());
-                            editTextTitle.addTextChangedListener(textWatcherTitle);
-                        }
-                        if (!note.getDescription().equals(editTextDescription.toString())) {
-                            editTextDescription.removeTextChangedListener(textWatcherDescription);
-                            editTextDescription.setText(note.getDescription());
-                            editTextDescription.addTextChangedListener(textWatcherDescription);
+//                        if last element in note history is not the title on the server then there has been
+//                        a change and we ask if the user wants to see the change or keep on working on his
+//                        version. problem:
+                        if ((!note.getHistory().isEmpty() &&
+                                !note.getHistory().get(note.getHistory().size() - 1).equals(note.getTitle()) &&
+                                !note.getTitle().trim().equals(editTextTitle.getText().toString().trim())))
+                            chooseBetweenServerDataAndLocalData(note.getTitle());
+                        else {
+                            if (!note.getTitle().equals(editTextTitle.getText().toString())) {
+                                editTextTitle.removeTextChangedListener(textWatcherTitle);
+                                editTextTitle.setText(note.getTitle());
+                                editTextTitle.addTextChangedListener(textWatcherTitle);
+                            }
+                            if (!note.getDescription().equals(editTextDescription.toString())) {
+                                editTextDescription.removeTextChangedListener(textWatcherDescription);
+                                editTextDescription.setText(note.getDescription());
+                                editTextDescription.addTextChangedListener(textWatcherDescription);
+                            }
                         }
                     }
-                    numberPickerPriority.setValue(note.getPriority());
                 }
             }
 
@@ -710,13 +1096,11 @@ public class EditNoteActivity extends MyActivity {
     private void saveNote() {
         String title = editTextTitle.getText().toString();
         String description = editTextDescription.getText().toString();
-        int priority = numberPickerPriority.getValue();
 
 
         documentRef.update(
                 "title", title,
-                "description", description,
-                "priority", priority
+                "description", description
         );
         if (newNote)
             makeText(this, "Note added", LENGTH_SHORT).show();
@@ -742,7 +1126,4 @@ public class EditNoteActivity extends MyActivity {
         return theme;
     }
 
-    boolean isNetworkAvailable() {
-        return super.isNetworkAvailable();
-    }
 }

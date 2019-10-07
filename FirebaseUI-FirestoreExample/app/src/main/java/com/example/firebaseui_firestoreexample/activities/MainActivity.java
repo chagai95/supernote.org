@@ -9,10 +9,15 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Process;
+import android.telephony.PhoneStateListener;
+import android.telephony.SignalStrength;
+import android.telephony.TelephonyManager;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.Toast;
@@ -26,23 +31,21 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
-import com.example.firebaseui_firestoreexample.CloudUser;
-import com.example.firebaseui_firestoreexample.InternetThread;
-import com.example.firebaseui_firestoreexample.MyActivityLifecycleCallbacks;
-import com.example.firebaseui_firestoreexample.MyDatePickerFragment;
+import com.example.firebaseui_firestoreexample.MyApp;
 import com.example.firebaseui_firestoreexample.Note;
-import com.example.firebaseui_firestoreexample.activities.adapters.NoteAdapter;
-import com.example.firebaseui_firestoreexample.NotificationHelper;
 import com.example.firebaseui_firestoreexample.R;
-import com.example.firebaseui_firestoreexample.utils.MyApp;
+import com.example.firebaseui_firestoreexample.activities.adapters.NoteAdapter;
+import com.example.firebaseui_firestoreexample.utils.InternetThread;
+import com.example.firebaseui_firestoreexample.utils.MyActivityLifecycleCallbacks;
+import com.example.firebaseui_firestoreexample.utils.MyDatePickerFragment;
+import com.example.firebaseui_firestoreexample.utils.NetworkUtil;
+import com.example.firebaseui_firestoreexample.utils.NotificationHelper;
 import com.example.firebaseui_firestoreexample.utils.TrafficLight;
 import com.firebase.ui.auth.AuthUI;
 import com.firebase.ui.firestore.FirestoreRecyclerOptions;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
-import com.google.firebase.firestore.DocumentSnapshot;
-import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Query;
 
 import java.util.Calendar;
@@ -57,7 +60,6 @@ public class MainActivity extends MyActivity {
 //    private SensorService mSensorService;
 
 
-    FirebaseFirestore db;
     private NoteAdapter adapter;
     FirebaseUser firebaseUser;
 
@@ -69,20 +71,17 @@ public class MainActivity extends MyActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        MyApp.getFirstInstance().registerActivityLifecycleCallbacks(new MyActivityLifecycleCallbacks());
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        MyApp.getFirstInstance().registerActivityLifecycleCallbacks(new MyActivityLifecycleCallbacks());
-
-        db = FirebaseFirestore.getInstance();
 
         FirebaseAuth mAuth = FirebaseAuth.getInstance();
         firebaseUser = mAuth.getCurrentUser();
         if (firebaseUser == null) {
             login();
         } else {
-
-            saveUserToMyApp();
 
             disablingInternetIfAnonymousUser();
 
@@ -105,7 +104,7 @@ public class MainActivity extends MyActivity {
 
             onCreateCalled = true;
 
-            createCacheLoaderTimerTask();
+//            createCacheLoaderTimerTask();
 
             new NotificationHelper(this).initNotificationChannels();
 
@@ -128,17 +127,86 @@ public class MainActivity extends MyActivity {
                 ActivityCompat.checkSelfPermission(c, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 requestPermissions(new String[]{
-                                Manifest.permission.ACCESS_COARSE_LOCATION}
+                                Manifest.permission.ACCESS_COARSE_LOCATION,
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.ACCESS_NETWORK_STATE}
                         , 10);
             }
-        }
-//        else MyApp.setTelephonyListener(c);
+        } else
+            setTelephonyListener();
 
     }
 
+    //    tried in on create
+    public void setTelephonyListener() {
+        TelephonyManager telephonyManager = (TelephonyManager) getSystemService(TELEPHONY_SERVICE);
+        assert telephonyManager != null;
+        telephonyManager.listen(new PhoneStateListener() {
+
+            @Override
+            public void onSignalStrengthsChanged(SignalStrength signalStrength) {
+                super.onSignalStrengthsChanged(signalStrength);
+                if (NetworkUtil.getConnectivityStatusString(c) == NetworkUtil.NETWORK_STATUS_MOBILE &&
+                        NetworkUtil.connectionIsFast != NetworkUtil.fastConnection(telephonyManager.getNetworkType())) {
+                    recreate();
+                    NetworkUtil.connectionIsFast = NetworkUtil.fastConnection(telephonyManager.getNetworkType());
+                }
+            }
+
+            /*@RequiresApi(api = Build.VERSION_CODES.M)
+            @Override
+            public void onCellInfoChanged(List<CellInfo> cellInfo) {
+                super.onCellInfoChanged(cellInfo);
+                if (c.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                    // TODO: Consider calling
+                    //    Activity#requestPermissions
+                    // here to request the missing permissions, and then overriding
+                    //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                    //                                          int[] grantResults)
+                    // to handle the case where the user grants the permission. See the documentation
+                    // for Activity#requestPermissions for more details.
+                    return;
+                }
+                Toast.makeText(c, "cellInfo changed", Toast.LENGTH_SHORT).show();
+                cellInfo = telephonyManager.getAllCellInfo();
+                boolean oneSimIsAlreadyRegistered = false;
+                for (CellInfo ci : cellInfo) {
+                    if (ci.isRegistered() && !oneSimIsAlreadyRegistered) {
+                        oneSimIsAlreadyRegistered = true;
+                        if (ci instanceof CellInfoGsm && !(NetworkUtil.lastRegisteredCellInfo instanceof CellInfoGsm)) {
+                            Toast.makeText(c, "changed to LTE(4G) from something else", Toast.LENGTH_LONG).show();
+                            NetworkUtil.lastRegisteredCellInfo = ci;
+                            recreate();
+                        }
+                        if (ci instanceof CellInfoLte && !(NetworkUtil.lastRegisteredCellInfo instanceof CellInfoLte)) {
+                            Toast.makeText(c, "changed to Gsm (2G?) from something else", Toast.LENGTH_LONG).show();
+                            NetworkUtil.lastRegisteredCellInfo = ci;
+                            recreate();
+                        }
+                        if (ci instanceof CellInfoCdma && !(NetworkUtil.lastRegisteredCellInfo instanceof CellInfoCdma)) {
+                            Toast.makeText(c, "changed to Cdma from something else", Toast.LENGTH_LONG).show();
+                            NetworkUtil.lastRegisteredCellInfo = ci;
+                            recreate();
+                        }
+                        if (ci instanceof CellInfoWcdma && !(NetworkUtil.lastRegisteredCellInfo instanceof CellInfoWcdma)) {
+                            Toast.makeText(c, "changed to wcdma from something else", Toast.LENGTH_LONG).show();
+                            NetworkUtil.lastRegisteredCellInfo = ci;
+                            recreate();
+                        }
+                    }
+                }
+
+            }
+*/
+
+        }, PhoneStateListener.LISTEN_SIGNAL_STRENGTHS);
+//        PhoneStateListener.LISTEN_DATA_ACTIVITY
+    }
+
+
     private void newNote() {
         FloatingActionButton buttonAddNote = findViewById(R.id.button_add_note);
-        buttonAddNote.setOnClickListener(view -> startActivity(new Intent(MainActivity.this,EditNoteActivity.class).putExtra("newNote",true)));
+        buttonAddNote.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, EditNoteActivity.class).putExtra("newNote", true)));
     }
 
     private void startAppOffline() {
@@ -158,36 +226,33 @@ public class MainActivity extends MyActivity {
     }
 
     private void swipeToRefresh() {
-        final SwipeRefreshLayout pullToRefresh = findViewById(R.id.pullToRefresh);
-        pullToRefresh.setOnRefreshListener(() -> {
-            recreate();
+        SwipeRefreshLayout pullToRefresh = findViewById(R.id.pullToRefresh);
+        if (MyApp.userSkippedLogin) {
             pullToRefresh.setRefreshing(false);
-        });
+            pullToRefresh.setEnabled(false);
+        }
+        else
+            pullToRefresh.setOnRefreshListener(() -> {
+                if (MyApp.internetDisabledInternally)
+                    askAboutActivatingInternalInternet();
+                else
+                    recreate();
+                pullToRefresh.setRefreshing(false);
+            });
     }
+
+
 
     private void disablingInternetIfAnonymousUser() {
 //            recreating here because the internet state has changed. using MyApp.userSkippedLogin so it only does this once.
         if (firebaseUser.isAnonymous() && !MyApp.userSkippedLogin) {
             MyApp.userSkippedLogin = true;
-            MyApp.internetDisabledInternally = true;
-            db.disableNetwork();
+            disableInternalInternet();
             recreate();
         }
     }
 
-    private void saveUserToMyApp() {
-        MyApp.uid = firebaseUser.getUid();
-        MyApp.userDocumentRef = db.collection("users").document(MyApp.uid);
-        MyApp.userDocumentRef.get().addOnCompleteListener(task -> {
-            if (task.isSuccessful()) {
-                DocumentSnapshot documentSnapshot = task.getResult();
-                assert documentSnapshot != null;
-                CloudUser cloudUser = documentSnapshot.toObject(CloudUser.class);
-                assert cloudUser != null;
-                MyApp.username = cloudUser.getUsername();
-            }
-        });
-    }
+
 
     private void login() {
         db.enableNetwork();
@@ -218,11 +283,13 @@ public class MainActivity extends MyActivity {
 
     //could perhaps be deleted.
     @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        // if (requestCode == 10) {               MyApp.setTelephonyListener(c);
-//                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-//                }
-        //      }
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
+        if (requestCode == 10) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                setTelephonyListener();
+            }
+        }
     }
 
 //    private boolean isMyServiceRunning() {
@@ -264,6 +331,7 @@ public class MainActivity extends MyActivity {
                 recyclerViewAllNotes();
 
         }
+        hideKeyboard();
     }
 
     private void setUpRecyclerViewWithQuery(Query query) {
@@ -292,6 +360,11 @@ public class MainActivity extends MyActivity {
                     adapter.untrashItem(viewHolder.getAdapterPosition());
                 else
                     adapter.trashItem(viewHolder.getAdapterPosition());
+
+                if (direction == ItemTouchHelper.LEFT) {
+                    adapter.deleteItem(viewHolder.getAdapterPosition());
+                    Toast.makeText(c, "deleted", Toast.LENGTH_SHORT).show();
+                }
             }
         }).attachToRecyclerView(recyclerView);
 
@@ -305,24 +378,24 @@ public class MainActivity extends MyActivity {
     }
 
     private void recyclerViewSearch() {
-        Query query = db.collection("notes").whereEqualTo("creator", MyApp.uid);// change this to have the search query.
+        Query query = db.collection("notes").whereEqualTo("creator", firebaseUser.getUid());// change this to have the search query.
 
         setUpRecyclerViewWithQuery(query);
     }
 
     private void recyclerViewShared() {
-        Query query = db.collection("notes").whereArrayContains("shared", MyApp.username);
+        Query query = db.collection("notes").whereArrayContains("shared", MyApp.myCloudUserData.getCloudUser().getUid());
         setUpRecyclerViewWithQuery(query);
 
     }
 
     private void recyclerViewTrash() {
-        Query query = db.collection("notes").whereEqualTo("creator", MyApp.uid).whereEqualTo("trash", true);
+        Query query = db.collection("notes").whereEqualTo("creator", firebaseUser.getUid()).whereEqualTo("trash", true);
         setUpRecyclerViewWithQuery(query);
     }
 
     private void recyclerViewAllNotes() {
-        Query query = db.collection("notes").whereEqualTo("creator", MyApp.uid).whereEqualTo("trash", false);
+        Query query = db.collection("notes").whereEqualTo("creator", firebaseUser.getUid()).whereEqualTo("trash", false);
         setUpRecyclerViewWithQuery(query);
     }
 
@@ -353,7 +426,7 @@ public class MainActivity extends MyActivity {
     protected void onResume() {
         super.onResume();
         MyApp.activityMainResumed();
-        if (!onCreateCalled && MyApp.lastTrafficLightState != lastTrafficLightState)
+        if (!onCreateCalled && MyApp.currentTrafficLightState != lastTrafficLightState)
             recreate();
     }
 
@@ -387,24 +460,19 @@ public class MainActivity extends MyActivity {
 
 
         if (MyApp.internetDisabledInternally)
-            appInternInternetOffToggleMenuItem.setTitle("activate internet in App");
+            appInternInternetOffToggleMenuItem.setTitle("go online");
         else
-            appInternInternetOffToggleMenuItem.setTitle("deactivate internet in App");
+            appInternInternetOffToggleMenuItem.setTitle("go offline");
 
 //        consider creating a method for all internet changes aside from the traffic light to handle all of the cases
 //        which are not connected to the data but still require internet even if the internet is off internally.
-        MenuItem reportBug = menu.findItem(R.id.report_bug);
-        if (isNetworkAvailable())
-            reportBug.setTitle("report bug");
-        else
-            reportBug.setTitle("no internet - report bug via whatsappReminder");
         return super.onCreateOptionsMenu(menu);
     }
 
     private void setMenuForUserSkippedLogin(Menu menu) {
         MenuItem appInternInternetOffToggleMenuItem = menu.findItem(R.id.app_intern_internet_toggle);
         appInternInternetOffToggleMenuItem.setVisible(false);
-        MenuItem sharedMenuItem = menu.findItem(R.id.shared);
+        MenuItem sharedMenuItem = menu.findItem(R.id.shared_notes);
         sharedMenuItem.setVisible(false);
     }
 
@@ -436,7 +504,7 @@ public class MainActivity extends MyActivity {
                 MyApp.recyclerViewMode = "trash";
                 recreate();
                 return true;
-            case R.id.shared:
+            case R.id.shared_notes:
                 MyApp.recyclerViewMode = "shared";
                 recreate();
                 return true;
@@ -454,6 +522,7 @@ public class MainActivity extends MyActivity {
 
     private void logout() {
         db.enableNetwork();
+        MyApp.logout();
         AuthUI.getInstance()
                 .signOut(this)
                 .addOnCompleteListener(task -> login());
@@ -464,10 +533,10 @@ public class MainActivity extends MyActivity {
             Uri uriUrl = Uri.parse("https://api.whatsapp.com/send?phone=4915905872952&text=my%20name%20is%20_writeyournamehere_%20.%20nice%20to%20meet%20you%20chagai%20&source=&data=");
             Intent launchBrowser = new Intent(Intent.ACTION_VIEW, uriUrl);
             startActivity(launchBrowser);
-        } else addWhatsappReminder();
+        } else addWhatsappReminderToReportBug();
     }
 
-    private void addWhatsappReminder() {
+    private void addWhatsappReminderToReportBug() {
         AlertDialog.Builder alert = new AlertDialog.Builder(this);
         LinearLayout layout = new LinearLayout(c);
         layout.setOrientation(LinearLayout.VERTICAL);
@@ -475,15 +544,15 @@ public class MainActivity extends MyActivity {
 
         // Add another TextView here for the message label
         final EditText messageEditText = new EditText(c);
-        messageEditText.setHint("write your message here");
+        messageEditText.setHint("describe your problem here");
         layout.addView(messageEditText); // Another add method
 
-        alert.setTitle("report bug");
-        alert.setMessage("press ok to set time");
+        alert.setTitle("report bug via whatsapp reminder");
+        alert.setMessage("no internet - set the time to when you will have internet connection");
         alert.setView(layout); // Again this is a set method, not add
 
         //only works once for some reason
-        alert.setPositiveButton("Ok", (dialog, whichButton) -> {
+        alert.setPositiveButton("set time", (dialog, whichButton) -> {
             Log.i("AlertDialog", "TextEntry 2 Entered " + messageEditText.getText().toString());
             showDatePicker("", messageEditText.getText().toString());
         });
@@ -491,11 +560,21 @@ public class MainActivity extends MyActivity {
         alert.setNegativeButton("Cancel", (dialog, whichButton) -> {
             // Canceled.
         });
-        alert.show();
+        AlertDialog alertDialog = alert.show();
+        Button btnPositive = alertDialog.getButton(AlertDialog.BUTTON_POSITIVE);
+        Button btnNegative = alertDialog.getButton(AlertDialog.BUTTON_NEGATIVE);
+
+        LinearLayout.LayoutParams layoutParams = (LinearLayout.LayoutParams) btnPositive.getLayoutParams();
+        layoutParams.weight = 10;
+        btnPositive.setLayoutParams(layoutParams);
+        btnNegative.setLayoutParams(layoutParams);
+
+        InputMethodManager inputMethodManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+        inputMethodManager.toggleSoftInput(InputMethodManager.SHOW_FORCED, 0);
     }
 
     public void showDatePicker(String number, String message) {
-        DialogFragment newFragment = new MyDatePickerFragment(null, c, number, message);
+        DialogFragment newFragment = new MyDatePickerFragment(null, c, number, message, null, null);
         newFragment.show(getSupportFragmentManager(), "date picker");
     }
 

@@ -1,13 +1,11 @@
-package com.example.firebaseui_firestoreexample;
+package com.example.firebaseui_firestoreexample.receivers;
 
-import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
 
-import com.google.firebase.firestore.FieldValue;
-import com.google.firebase.firestore.FirebaseFirestore;
+import com.example.firebaseui_firestoreexample.services.SensorService;
 
 /**
  * Created by fabio on 24/01/2016.

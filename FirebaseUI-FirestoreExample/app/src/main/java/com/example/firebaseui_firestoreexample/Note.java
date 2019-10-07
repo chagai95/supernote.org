@@ -9,7 +9,6 @@ import java.util.Date;
 public class Note {
     private String title;
     private String description;
-    private int priority;
     private ArrayList<String> history;
     private ArrayList<String> shared;
     private boolean keepOffline;
@@ -23,10 +22,9 @@ public class Note {
     public Note(){
         // empty constructor needed for firebase
     }
-    public Note(String title, String description, int priority, Timestamp created, String creator) {
+    public Note(String title, String description, Timestamp created, String creator) {
         this.title = title;
         this.description = description;
-        this.priority = priority;
         this.created = created;
         this.creator = creator;
         history = new ArrayList<>();
@@ -37,7 +35,7 @@ public class Note {
     }
 
     public Note newNoteVersion(){
-        return new Note(title,description,priority, new Timestamp(new Date()), creator);
+        return new Note(title,description, new Timestamp(new Date()), creator);
     }
 
     public String getTitle() {
@@ -48,9 +46,6 @@ public class Note {
         return description;
     }
 
-    public int getPriority() {
-        return priority;
-    }
 
     public ArrayList<String> getHistory() {
         return history;

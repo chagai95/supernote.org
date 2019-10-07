@@ -1,31 +1,33 @@
 package com.example.firebaseui_firestoreexample.reminders;
 
-import android.location.Location;
+import com.example.firebaseui_firestoreexample.CloudUser;
 
-import com.google.firebase.firestore.GeoPoint;
-
-public class LocationReminder extends Reminder {
-    private GeoPoint geoPoint;
+// make this a sub class of location reminder and change the location every time the other user
+// moves with a listener.
+public class UserReminder extends LocationReminder {
+    private String cloudUserID;
     private double radius;
     private boolean arrive;
     private boolean leave;
 
-    public LocationReminder(double radius) {
-        super("location");
+    public UserReminder(String cloudUserID, double radius) {
+        super(radius);
+        setType("user");
+        this.cloudUserID = cloudUserID;
         this.radius = radius;
     }
 
     @SuppressWarnings("unused")
-    public LocationReminder(){
+    public UserReminder(){
         // empty constructor needed for firestore
     }
 
-    public GeoPoint getGeoPoint() {
-        return geoPoint;
+    public String getCloudUserID() {
+        return cloudUserID;
     }
 
-    public void setGeoPoint(GeoPoint geoPoint) {
-        this.geoPoint = geoPoint;
+    public void setCloudUserID(String cloudUserID) {
+        this.cloudUserID = cloudUserID;
     }
 
     public double getRadius() {
@@ -51,5 +53,4 @@ public class LocationReminder extends Reminder {
     public void setLeave(boolean leave) {
         this.leave = leave;
     }
-
 }

@@ -14,30 +14,19 @@
         android:padding="8dp">
 
         <TextView
-            android:id="@+id/text_view_title"
+            android:id="@+id/reminderItemTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_alignParentStart="true"
             android:maxLines="1"
             android:ellipsize="end"
             android:textAppearance="@style/TextAppearance.AppCompat.Large"/>
-           <!-- android:layout_toStartOf="@+id/text_view_priority"-->
-
-
-        <!--<TextView
-            android:id="@+id/text_view_priority"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="1"
-            android:layout_alignParentTop="true"
-            android:layout_alignParentEnd="true"
-            android:textAppearance="@style/TextAppearance.AppCompat.Large"/>-->
 
         <TextView
-            android:id="@+id/text_view_description"
+            android:id="@+id/reminderItemDescription"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_below="@+id/text_view_title"
+            android:layout_below="@+id/reminderItemTitle"
             android:layout_alignParentStart="true" />
 
     </RelativeLayout>

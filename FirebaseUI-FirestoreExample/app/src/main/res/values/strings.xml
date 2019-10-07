@@ -2,7 +2,6 @@
     <string name="app_name">supernote.org</string>
     <string name="title">Title</string>
     <string name="description">Description</string>
-    <string name="priority">Priority</string>
     <string name="keep_listener_on">keep synced</string>
     <string name="activate_load_to_cache">load to cache every ____</string>
     <string name="deactivate_use_offline">deactivate use offline</string>
