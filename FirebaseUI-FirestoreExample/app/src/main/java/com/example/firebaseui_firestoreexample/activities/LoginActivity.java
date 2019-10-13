@@ -12,6 +12,7 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.example.firebaseui_firestoreexample.CloudUser;
 import com.example.firebaseui_firestoreexample.R;
 import com.example.firebaseui_firestoreexample.MyApp;
+import com.example.firebaseui_firestoreexample.firestore_data.CloudUserData;
 import com.example.firebaseui_firestoreexample.utils.TrafficLight;
 import com.firebase.ui.auth.AuthUI;
 import com.google.firebase.auth.FirebaseAuth;
@@ -112,14 +113,31 @@ public class LoginActivity extends MyActivity {
                 MyApp.internetDisabledInternally = false;
 
                 firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
-                MyApp.login();
+
                 db.collection("users").document(firebaseUser.getUid()).get().addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
                         DocumentSnapshot documentSnapshot = task.getResult();
                         assert documentSnapshot != null;
-                        if (!documentSnapshot.exists())
+                        if (!documentSnapshot.exists()){
+                            CloudUser cloudUser = new CloudUser(firebaseUser.getDisplayName() + firebaseUser.getUid(), firebaseUser.getUid());
                             db.collection("users").document(firebaseUser.getUid())
-                                    .set(new CloudUser(firebaseUser.getDisplayName() + firebaseUser.getUid(), firebaseUser.getUid()));
+                                    .set(cloudUser).addOnCompleteListener(setTask -> {
+                                               if(setTask.isSuccessful()){
+                                                   db.collection("users").document(firebaseUser.getUid()).get().addOnCompleteListener(taskFirstTime -> {
+                                                              if(taskFirstTime.isSuccessful()){
+                                                                  DocumentSnapshot documentSnapshotFirstTime = taskFirstTime.getResult();
+                                                                  assert documentSnapshotFirstTime != null;
+                                                                  CloudUser cloudUserFirstTime = documentSnapshotFirstTime.toObject(CloudUser.class);
+                                                                  assert cloudUserFirstTime != null;
+                                                                  MyApp.myCloudUserData = new CloudUserData(cloudUserFirstTime,documentSnapshotFirstTime.getReference());
+                                                                  MyApp.login();
+                                                              }
+                                                           });
+                                               }
+                                            });
+                        }
+                        if(documentSnapshot.exists())
+                            MyApp.login();
                     }
 
                 });

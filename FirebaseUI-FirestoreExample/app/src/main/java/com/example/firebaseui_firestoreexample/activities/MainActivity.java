@@ -360,14 +360,15 @@ public class MainActivity extends MyActivity {
 
             @Override
             public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
-                if (MyApp.recyclerViewMode.equals("trash")) {
-                    Toast.makeText(c, "note restored from trash", Toast.LENGTH_SHORT).show();
-                    adapter.untrashItem(viewHolder.getAdapterPosition());
-                } else{
-                    Toast.makeText(c, "note trashed", Toast.LENGTH_SHORT).show();
-                    adapter.trashItem(viewHolder.getAdapterPosition());
+                if (direction == ItemTouchHelper.RIGHT) {
+                    if (MyApp.recyclerViewMode.equals("trash")) {
+                        Toast.makeText(c, "note restored from trash", Toast.LENGTH_SHORT).show();
+                        adapter.untrashItem(viewHolder.getAdapterPosition());
+                    } else {
+                        Toast.makeText(c, "note trashed", Toast.LENGTH_SHORT).show();
+                        adapter.trashItem(viewHolder.getAdapterPosition());
+                    }
                 }
-
                 if (direction == ItemTouchHelper.LEFT) {
                     adapter.deleteItem(viewHolder.getAdapterPosition());
                     Toast.makeText(c, "deleted", Toast.LENGTH_SHORT).show();
@@ -391,7 +392,7 @@ public class MainActivity extends MyActivity {
     }
 
     private void recyclerViewShared() {
-        Query query = db.collection("notes").whereArrayContains("shared", MyApp.myCloudUserData.getCloudUser().getUid());
+        Query query = db.collection("notes").whereArrayContains("shared", MyApp.userUid);
         setUpRecyclerViewWithQuery(query);
 
     }

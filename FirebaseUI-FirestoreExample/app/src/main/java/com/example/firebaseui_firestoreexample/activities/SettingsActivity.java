@@ -101,7 +101,7 @@ public class SettingsActivity extends MyActivity {
         usernameCheckAvailability = findViewById(R.id.check_username_availability);
         usernameCheckAvailability.setText(MyApp.myCloudUserData.getCloudUser().getUsername());
         if (isNetworkAvailable() && !MyApp.internetDisabledInternally) {
-            db.collection("users").document(MyApp.myCloudUserData.getCloudUser().getUid()).addSnapshotListener((documentSnapshot, e) -> {
+            db.collection("users").document(MyApp.userUid).addSnapshotListener((documentSnapshot, e) -> {
                 if (e != null) System.err.println("Listen failed: " + e);
 
                 if (documentSnapshot != null && documentSnapshot.exists()) {
@@ -149,7 +149,7 @@ public class SettingsActivity extends MyActivity {
                                 }
                             } else {
                                 usernameCheckAvailability.setTextColor(Color.parseColor("#36832B"));
-                                db.collection("users").document(MyApp.myCloudUserData.getCloudUser().getUid()).update("username", username);
+                                db.collection("users").document(MyApp.userUid).update("username", username);
                             }
                     });
                 }

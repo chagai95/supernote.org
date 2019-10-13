@@ -543,7 +543,7 @@ public class MyApp extends Application {
             });
 
             Query queryNotifyingReminders = firebaseFirestore.collectionGroup("Reminders").whereArrayContains("notifyUsers",
-                    MyApp.myCloudUserData.getCloudUser().getUid());
+                    userUid);
 
             queryNotifyingReminders.addSnapshotListener((queryDocumentSnapshots, e) -> {
                 if (MyApp.internetDisabledInternally)

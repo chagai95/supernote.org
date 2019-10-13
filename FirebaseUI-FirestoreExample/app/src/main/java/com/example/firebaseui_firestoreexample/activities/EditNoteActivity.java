@@ -173,7 +173,8 @@ public class EditNoteActivity extends MyActivity {
         textWatchers();
 
         if (!MyApp.userSkippedLogin) {
-            notifyUserSuggestions.put(MyApp.myCloudUserData.getCloudUser().getUsername(), MyApp.myCloudUserData);
+            if (MyApp.myCloudUserData != null)
+                notifyUserSuggestions.put(MyApp.myCloudUserData.getCloudUser().getUsername(), MyApp.myCloudUserData);
             loadSharedUsers();
         }
 
@@ -411,12 +412,12 @@ public class EditNoteActivity extends MyActivity {
 
         alert.setTitle("choose users:");
 
-            final String[] shared = sharedUsernames.toArray(new String[0]);
-            final String[] sharedAndMe = new String[shared.length + 1];
-            System.arraycopy(shared, 0, sharedAndMe, 1, shared.length);
-            boolean[] checkedItems = new boolean[sharedAndMe.length];
-            sharedAndMe[0] = "me";
-            checkedItems[0] = true;
+        final String[] shared = sharedUsernames.toArray(new String[0]);
+        final String[] sharedAndMe = new String[shared.length + 1];
+        System.arraycopy(shared, 0, sharedAndMe, 1, shared.length);
+        boolean[] checkedItems = new boolean[sharedAndMe.length];
+        sharedAndMe[0] = "me";
+        checkedItems[0] = true;
         if (!MyApp.userSkippedLogin) {
             alert.setMultiChoiceItems(sharedAndMe, checkedItems, (dialog, which, isChecked) -> checkedItems[which] = isChecked);
         }
@@ -562,7 +563,7 @@ public class EditNoteActivity extends MyActivity {
         LinearLayout layout = new LinearLayout(c);
         layout.setOrientation(LinearLayout.VERTICAL);
 //      add layout
-        if (!isNetworkAvailable() || MyApp.internetDisabledInternally){
+        if (!isNetworkAvailable() || MyApp.internetDisabledInternally) {
             final TextView noInternetMessageTextView = new TextView(c);
 
             noInternetMessageTextView.setText("no internet - possibly suggesting\n" +
@@ -570,13 +571,13 @@ public class EditNoteActivity extends MyActivity {
             layout.addView(noInternetMessageTextView);
         }
 
-        if(!MyApp.userUid.equals(offlineNoteData.getNote().getCreator())){
+        if (!MyApp.userUid.equals(offlineNoteData.getNote().getCreator())) {
             final TextView creatorTextView = new TextView(c);
             CloudUserData cloudUserData = MyApp.friends.get(offlineNoteData.getNote().getCreator());
             assert cloudUserData != null;
             CloudUser cloudUser = cloudUserData.getCloudUser();
             String username = cloudUser.getUsername();
-            creatorTextView.setText("note creator: " +username );
+            creatorTextView.setText("note creator: " + username);
             layout.addView(creatorTextView);
         }
 
@@ -763,7 +764,7 @@ public class EditNoteActivity extends MyActivity {
         radiusEditText.setHint("write the radius here");
         layout.addView(radiusEditText); // Notice this is an add method
 
-        if (!isNetworkAvailable() || MyApp.internetDisabledInternally){
+        if (!isNetworkAvailable() || MyApp.internetDisabledInternally) {
             final TextView noInternetMessageTextView = new TextView(c);
             noInternetMessageTextView.setText("no internet - possibly suggesting\n" +
                     "only users from friends list");
