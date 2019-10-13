@@ -47,6 +47,8 @@ import com.example.firebaseui_firestoreexample.MyApp;
 import com.example.firebaseui_firestoreexample.firestore_data.OfflineNoteData;
 import com.example.firebaseui_firestoreexample.utils.TrafficLight;
 import com.google.firebase.Timestamp;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
@@ -98,6 +100,8 @@ public class EditNoteActivity extends MyActivity {
     HashMap<String, CloudUserData> notifyUserSuggestions = new HashMap<>();
     ArrayList<String> sharedUsernames = new ArrayList<>();
 
+    String[] timeType;
+
 
 //    private int cursor;
 //    private boolean changeCursorPositionBack;
@@ -112,7 +116,6 @@ public class EditNoteActivity extends MyActivity {
 //        SwipeRefreshLayout swipeRefreshLayout = findViewById(R.id.pullToRefreshEditNoteActivity);
 //        swipeToRefresh(swipeRefreshLayout);
 
-        notifyUserSuggestions.put(MyApp.myCloudUserData.getCloudUser().getUsername(), MyApp.myCloudUserData);
 
         Objects.requireNonNull(getSupportActionBar()).setHomeAsUpIndicator(R.drawable.ic_close); // added Objects.requireNonNull to avoid warning
 
@@ -137,7 +140,11 @@ public class EditNoteActivity extends MyActivity {
             inputMethodManager.toggleSoftInput(InputMethodManager.SHOW_FORCED, 0);
             CollectionReference notesCollRef = FirebaseFirestore.getInstance()
                     .collection("notes");
-            notesCollRef.add(new Note("", "", new Timestamp(new Date()), MyApp.myCloudUserData.getCloudUser().getUid()))
+            FirebaseAuth mAuth = FirebaseAuth.getInstance();
+            FirebaseUser firebaseUser = mAuth.getCurrentUser();
+            db.enableNetwork();
+            assert firebaseUser != null;
+            notesCollRef.add(new Note("", "", new Timestamp(new Date()), firebaseUser.getUid()))
                     .addOnCompleteListener(task -> {
                         if (task.isSuccessful()) {
                             DocumentReference documentReference = task.getResult();
@@ -145,7 +152,8 @@ public class EditNoteActivity extends MyActivity {
                             documentRef = documentReference;
                             offlineNoteData = new OfflineNoteData(documentReference);
                             MyApp.allNotes.put(documentReference.getId(), offlineNoteData);
-
+                            if (MyApp.internetDisabledInternally)
+                                db.disableNetwork();
                             if (isNetworkAvailable() && !MyApp.internetDisabledInternally)
                                 setNoteWithConnection();
 
@@ -164,7 +172,10 @@ public class EditNoteActivity extends MyActivity {
 
         textWatchers();
 
-        loadSharedUsers();
+        if (!MyApp.userSkippedLogin) {
+            notifyUserSuggestions.put(MyApp.myCloudUserData.getCloudUser().getUsername(), MyApp.myCloudUserData);
+            loadSharedUsers();
+        }
 
     }
 
@@ -246,7 +257,7 @@ public class EditNoteActivity extends MyActivity {
                             Note note = Objects.requireNonNull(task.getResult()).toObject(Note.class);
                             assert note != null;
                             offlineNoteData.setNote(note); // saving to enable quicker loading or pre-loading.
-                            documentRef.collection(MyApp.getDeviceID(c) + MyApp.myCloudUserData.getCloudUser().getUid()).add(note.newNoteVersion());
+                            documentRef.collection(MyApp.getDeviceID(c) + MyApp.userUid).add(note.newNoteVersion());
                         }
                     });
 
@@ -330,8 +341,11 @@ public class EditNoteActivity extends MyActivity {
         MenuInflater menuInflater = getMenuInflater();
         menuInflater.inflate(R.menu.note_menu, menu);
 
-        if (MyApp.userSkippedLogin)
+        timeType = new String[]{"time", "location", "user", "whatsapp"};
+        if (MyApp.userSkippedLogin) {
             setMenuForUserSkippedLogin(menu);
+            timeType = new String[]{"time", "location", "whatsapp"};
+        }
 
         MenuItem appInternInternetOffToggleMenuItem = menu.findItem(R.id.app_intern_internet_toggle_in_note_activity);
         if (MyApp.internetDisabledInternally)
@@ -390,20 +404,22 @@ public class EditNoteActivity extends MyActivity {
         }
     }
 
+    //    add a button instead of cancel to go back and choose a different reminder type for every reminder dialog.
     @RequiresApi(api = Build.VERSION_CODES.M)
     private void addReminder() {
         AlertDialog.Builder alert = new AlertDialog.Builder(c);
 
         alert.setTitle("choose users:");
 
-
-        final String[] shared = sharedUsernames.toArray(new String[0]);
-        final String[] sharedAndMe = new String[shared.length + 1];
-        System.arraycopy(shared, 0, sharedAndMe, 1, shared.length);
-        sharedAndMe[0] = "me";
-        boolean[] checkedItems = new boolean[sharedAndMe.length];
-        checkedItems[0] = true;
-        alert.setMultiChoiceItems(sharedAndMe, checkedItems, (dialog, which, isChecked) -> checkedItems[which] = isChecked);
+            final String[] shared = sharedUsernames.toArray(new String[0]);
+            final String[] sharedAndMe = new String[shared.length + 1];
+            System.arraycopy(shared, 0, sharedAndMe, 1, shared.length);
+            boolean[] checkedItems = new boolean[sharedAndMe.length];
+            sharedAndMe[0] = "me";
+            checkedItems[0] = true;
+        if (!MyApp.userSkippedLogin) {
+            alert.setMultiChoiceItems(sharedAndMe, checkedItems, (dialog, which, isChecked) -> checkedItems[which] = isChecked);
+        }
 
         LinearLayout layout = new LinearLayout(c);
         layout.setOrientation(LinearLayout.HORIZONTAL);
@@ -415,7 +431,8 @@ public class EditNoteActivity extends MyActivity {
 
         Spinner dropdownTimeType = new Spinner(c);
 //      create a list of items for the spinner.
-        String[] timeType = new String[]{"time", "location", "user", "whatsapp"};
+
+
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, timeType);
         dropdownTimeType.setAdapter(adapter);
 
@@ -429,7 +446,10 @@ public class EditNoteActivity extends MyActivity {
                 if (firstOpenSpinner)
                     firstOpenSpinner = false;
                 else {
-                    showReminderDialog(timeType[position], getUsernames(sharedAndMe, checkedItems), notifyUserSuggestions);
+                    if (MyApp.userSkippedLogin)
+                        showReminderDialog(timeType[position], new ArrayList<>(), notifyUserSuggestions);
+                    else
+                        showReminderDialog(timeType[position], getUsernames(sharedAndMe, checkedItems), notifyUserSuggestions);
                     if (addReminderAlertDialog != null)
                         addReminderAlertDialog.cancel();
                 }
@@ -446,7 +466,10 @@ public class EditNoteActivity extends MyActivity {
 
 
         alert.setPositiveButton("continue", (dialog, whichButton) -> {
-            showReminderDialog(dropdownTimeType.getSelectedItem().toString(), getUsernames(sharedAndMe, checkedItems), notifyUserSuggestions);
+            if (MyApp.userSkippedLogin)
+                showReminderDialog(dropdownTimeType.getSelectedItem().toString(), new ArrayList<>(), notifyUserSuggestions);
+            else
+                showReminderDialog(dropdownTimeType.getSelectedItem().toString(), getUsernames(sharedAndMe, checkedItems), notifyUserSuggestions);
         });
 
         alert.setNegativeButton("cancel", (dialog, whichButton) -> {
@@ -498,9 +521,7 @@ public class EditNoteActivity extends MyActivity {
     private void shareWithAnotherUser() {
         AlertDialog.Builder alert = new AlertDialog.Builder(c);
         alert.setTitle("Share note");
-        if (!isNetworkAvailable() || MyApp.internetDisabledInternally)
-            alert.setTitle("Share note: \n" +
-                    "no internet - possibly suggesting only users from friends list");
+
 
         final String[] shared = sharedUsernames.toArray(new String[0]);
         boolean[] checkedItems = new boolean[shared.length];
@@ -538,10 +559,32 @@ public class EditNoteActivity extends MyActivity {
             }
         });
 
+        LinearLayout layout = new LinearLayout(c);
+        layout.setOrientation(LinearLayout.VERTICAL);
+//      add layout
+        if (!isNetworkAvailable() || MyApp.internetDisabledInternally){
+            final TextView noInternetMessageTextView = new TextView(c);
+
+            noInternetMessageTextView.setText("no internet - possibly suggesting\n" +
+                    "only users from friends list");
+            layout.addView(noInternetMessageTextView);
+        }
+
+        if(!MyApp.userUid.equals(offlineNoteData.getNote().getCreator())){
+            final TextView creatorTextView = new TextView(c);
+            CloudUserData cloudUserData = MyApp.friends.get(offlineNoteData.getNote().getCreator());
+            assert cloudUserData != null;
+            CloudUser cloudUser = cloudUserData.getCloudUser();
+            String username = cloudUser.getUsername();
+            creatorTextView.setText("note creator: " +username );
+            layout.addView(creatorTextView);
+        }
+
         final AutoCompleteTextView autoCompleteTextView = new AutoCompleteTextView(c);
         autoCompleteTextView.setHint("type a username to share with a user");
         autoCompleteTextView.setCompletionHint("select a username");
-        alert.setView(autoCompleteTextView);
+        layout.addView(autoCompleteTextView);
+        alert.setView(layout);
 
         CollectionReference userCollRef;
         HashMap<String, CloudUserData> userSuggestions;
@@ -587,6 +630,7 @@ public class EditNoteActivity extends MyActivity {
                     .addOnSuccessListener(aVoid -> {
                         sharedUsernames.add(newUserUsername);
                         notifyUserSuggestions.put(newUserUsername, newUserCloudUserData);
+                        MyApp.friends.put(newUserCloudUserData.getCloudUser().getUid(), newUserCloudUserData);
                         Toast.makeText(this, "note shared with " + newUserUsername, Toast.LENGTH_LONG).show();
                         alertDialogForSharingWithAnotherUser.cancel();
                     });
@@ -667,12 +711,17 @@ public class EditNoteActivity extends MyActivity {
             LocationReminder locationReminder = new LocationReminder(radiusDouble);
             locationReminder.setGeoPoint(new GeoPoint(location.getLatitude(), location.getLongitude()));
             locationReminder.setNotifyUsers(getUserIDs(usernames, userSuggestions));
+            db.enableNetwork();
             documentRef.collection("Reminders")
                     .add(locationReminder)
+//                    this is already done in the listener.
                     .addOnCompleteListener(task -> {
                         if (task.isSuccessful()) {
                             MyApp.locationReminders.put(Objects.requireNonNull(task.getResult()).getId(),
                                     new LocationReminderData(task.getResult(), locationReminder));
+//                            disabling network here because there is no reminder listener.
+                            if (MyApp.userSkippedLogin)
+                                db.disableNetwork();
                         }
                     });
 
@@ -713,6 +762,13 @@ public class EditNoteActivity extends MyActivity {
         final EditText radiusEditText = new EditText(c);
         radiusEditText.setHint("write the radius here");
         layout.addView(radiusEditText); // Notice this is an add method
+
+        if (!isNetworkAvailable() || MyApp.internetDisabledInternally){
+            final TextView noInternetMessageTextView = new TextView(c);
+            noInternetMessageTextView.setText("no internet - possibly suggesting\n" +
+                    "only users from friends list");
+            layout.addView(noInternetMessageTextView);
+        }
 
         final AutoCompleteTextView addUserAutoCompleteTextView = new AutoCompleteTextView(c);
         addUserAutoCompleteTextView.setHint("type a username to share with a user");
@@ -776,6 +832,7 @@ public class EditNoteActivity extends MyActivity {
                     userID
                     , radiusDouble);
             userReminder.setNotifyUsers(getUserIDs(usernames, userSuggestionsNotifyUser));
+            db.enableNetwork();
             documentRef.collection("Reminders")
                     .add(userReminder)
                     .addOnCompleteListener(task -> {
@@ -999,7 +1056,7 @@ public class EditNoteActivity extends MyActivity {
 //                        and we can set the listener directly.
                     if (offlineNoteData.getLastKnownNoteHistoryListSize() != -1) {
 //                            getting the unique device history list - this has no use online so we can just call it from the cache.
-                        documentRef.collection(MyApp.getDeviceID(c) + MyApp.myCloudUserData.getCloudUser().getUid()).orderBy("created", Query.Direction.ASCENDING).get(Source.CACHE).addOnCompleteListener(taskOfflineHistory -> {
+                        documentRef.collection(MyApp.getDeviceID(c) + MyApp.userUid).orderBy("created", Query.Direction.ASCENDING).get(Source.CACHE).addOnCompleteListener(taskOfflineHistory -> {
                             if (taskOfflineHistory.isSuccessful()) {
                                 ArrayList<DocumentSnapshot> deviceHistoryList = (ArrayList<DocumentSnapshot>) Objects.requireNonNull(taskOfflineHistory.getResult()).getDocuments();
 //                                    if the size of the main note history list has changed we want to check if the title is not coincidentally the same and then
@@ -1114,6 +1171,8 @@ public class EditNoteActivity extends MyActivity {
         appInternInternetOffToggleMenuItem.setVisible(false);
         MenuItem shareWithAnotherUserMenuItem = menu.findItem(R.id.share_with_another_user);
         shareWithAnotherUserMenuItem.setVisible(false);
+        MenuItem refreshTrafficLightMenuItem = menu.findItem(R.id.refreshTrafficLight);
+        refreshTrafficLightMenuItem.setVisible(false);
         MenuItem keepSyncedMenuItem = menu.findItem(R.id.keep_listener_on);
         keepSyncedMenuItem.setVisible(false);
     }

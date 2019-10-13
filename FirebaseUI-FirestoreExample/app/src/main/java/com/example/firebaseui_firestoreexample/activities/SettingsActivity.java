@@ -56,11 +56,31 @@ public class SettingsActivity extends MyActivity {
 
         startAppOffline();
 
-        username();
+        if (!MyApp.userSkippedLogin) {
 
-        addFriends();
+            username();
 
-        showFriends();
+            addFriends();
+
+            showFriends();
+        } else
+            hideCloudFunctionalities();
+    }
+
+    private void hideCloudFunctionalities() {
+        Button showFriendsButton = findViewById(R.id.showFriends);
+        Button addFriendButton = findViewById(R.id.addFriendButton);
+        EditText editText = findViewById(R.id.check_username_availability);
+        TextView username_text_explaining_what_to_doTextView = findViewById(R.id.username_text_explaining_what_to_do);
+        TextView addFriendsTextView = findViewById(R.id.addFriends);
+        TextView currentUsernameTextView = findViewById(R.id.currentUsername);
+
+        showFriendsButton.setVisibility(View.GONE);
+        addFriendButton.setVisibility(View.GONE);
+        editText.setVisibility(View.GONE);
+        username_text_explaining_what_to_doTextView.setVisibility(View.GONE);
+        addFriendsTextView.setVisibility(View.GONE);
+        currentUsernameTextView.setVisibility(View.GONE);
 
     }
 
@@ -198,7 +218,8 @@ public class SettingsActivity extends MyActivity {
             addFriendButton.setText("add username offline");
         }
         addFriendButton.setOnClickListener(v -> {
-            db.collection("users").whereEqualTo("username", addFriends.getText().toString()).get(Source.SERVER).addOnCompleteListener(task -> {
+            // has to be from server so we don't add invalid usernames??
+            db.collection("users").whereEqualTo("username", addFriends.getText().toString().toLowerCase()).get(Source.SERVER).addOnCompleteListener(task -> {
                 if (task.isSuccessful()) {
                     QuerySnapshot result = task.getResult();
                     assert result != null;
@@ -216,6 +237,10 @@ public class SettingsActivity extends MyActivity {
                         Toast.makeText(SettingsActivity.this, addFriends.getText().toString() + " does not exist", Toast.LENGTH_LONG).show();
 
 
+                } else {
+                    Toast.makeText(this, "username " + addFriends.getText().toString().toLowerCase() + " will be added when internet is available", Toast.LENGTH_SHORT).show();
+                    addFriends.setText("");
+                    // make a list of usernames and add them as soon as there is internet then delete them from the list.
                 }
             });
         });

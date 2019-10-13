@@ -23,7 +23,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
 
-import com.example.firebaseui_firestoreexample.activities.MainActivity;
+import com.example.firebaseui_firestoreexample.activities.ShowErrorActivity;
 import com.example.firebaseui_firestoreexample.firestore_data.CloudUserData;
 import com.example.firebaseui_firestoreexample.firestore_data.LocationReminderData;
 import com.example.firebaseui_firestoreexample.firestore_data.OfflineNoteData;
@@ -66,6 +66,7 @@ import java.util.UUID;
 public class MyApp extends Application {
     public static boolean userSkippedLogin;
     public static CloudUserData myCloudUserData;
+    public static String userUid;
     private static MyApp firstInstance;
     public static boolean updateFromServer;
     public static String titleOldVersion;// perhaps with an intent?
@@ -165,22 +166,6 @@ public class MyApp extends Application {
         return firstInstance.getApplicationContext();
     }
 
-    public static void logout() {
-        for (TimeReminderData timeReminderData :
-                timeReminders.values()) {
-            timeReminderData.getDocumentReference().get().addOnCompleteListener(task -> {
-                if (task.isSuccessful()) {
-                    DocumentSnapshot documentSnapshot = task.getResult();
-                    assert documentSnapshot != null;
-                    removeReminderFromAlarmManager(documentSnapshot);
-                }
-            });
-        }
-        initialize();
-    }
-
-
-
 
     @Override
     public void onCreate() {
@@ -230,26 +215,36 @@ public class MyApp extends Application {
         FirebaseAuth mAuth = FirebaseAuth.getInstance();
         FirebaseUser firebaseUser = mAuth.getCurrentUser();
         if (firebaseUser != null) {
+            userUid = firebaseUser.getUid();
+            userSkippedLogin = firebaseUser.isAnonymous();
             saveUserToMyApp(firebaseUser);
         }
     }
 
-    // make public static and call from the login
     static void saveUserToMyApp(FirebaseUser firebaseUser) {
+
         FirebaseFirestore firebaseFirestore = FirebaseFirestore.getInstance();
-        firebaseFirestore.collection("users").document(firebaseUser.getUid())
-                .get().addOnCompleteListener(task -> {
-            if (task.isSuccessful()) {
-                DocumentSnapshot documentSnapshot = task.getResult();
-                assert documentSnapshot != null;
-                CloudUser cloudUser = documentSnapshot.toObject(CloudUser.class);
-                assert cloudUser != null;
-                MyApp.myCloudUserData = new CloudUserData(cloudUser, documentSnapshot.getReference());
-                loadAllNotes(firebaseFirestore);
-                loadAllRemindersAndRegisterListeners(firebaseFirestore);
-                loadFriends(firebaseFirestore);
-            }
-        });
+        if (!userSkippedLogin)
+            firebaseFirestore.collection("users").document(firebaseUser.getUid())
+                    .get().addOnCompleteListener(task -> {
+                if (task.isSuccessful()) {
+                    DocumentSnapshot documentSnapshot = task.getResult();
+                    assert documentSnapshot != null;
+                    CloudUser cloudUser = documentSnapshot.toObject(CloudUser.class);
+                    assert cloudUser != null;
+                    MyApp.myCloudUserData = new CloudUserData(cloudUser, documentSnapshot.getReference());
+                    firebaseFirestore.enableNetwork();
+                    loadAllNotes(firebaseFirestore);
+                    loadAllRemindersAndRegisterListeners(firebaseFirestore);
+                    loadFriends(firebaseFirestore);
+                }
+            });
+
+//        disable network only after we get all data, that's why we call each method only when the other finishes
+        if (userSkippedLogin) {
+            loadAllNotes(firebaseFirestore);
+        }
+
     }
 
     private static void loadFriends(FirebaseFirestore firebaseFirestore) {
@@ -265,6 +260,29 @@ public class MyApp extends Application {
                 }
             });
         }
+    }
+
+    public static void logout() {
+        for (TimeReminderData timeReminderData :
+                timeReminders.values()) {
+            timeReminderData.getDocumentReference().get().addOnCompleteListener(task -> {
+                if (task.isSuccessful()) {
+                    DocumentSnapshot documentSnapshot = task.getResult();
+                    assert documentSnapshot != null;
+                    Map<String, Object> data = documentSnapshot.getData();
+                    assert data != null;
+                    Timestamp timestamp = (Timestamp) data.get("timestamp");
+                    assert timestamp != null;
+                    if (!(boolean) data.get("done") &&
+                            !(boolean) data.get("trash") &&
+                            new Date().before(timestamp.toDate()))
+                        removeReminderFromAlarmManager(documentSnapshot);
+                }
+            });
+        }
+        FirebaseAuth mAuth = FirebaseAuth.getInstance();
+        mAuth.signOut();
+        initialize();
     }
 
     void addConnectivityListener() {
@@ -378,12 +396,18 @@ public class MyApp extends Application {
 
     private static void loadAllNotes(FirebaseFirestore firebaseFirestore) {
         Query queryMyNotes = firebaseFirestore.collection("notes").whereEqualTo("creator",
-                MyApp.myCloudUserData.getCloudUser().getUid());
-        Query querySharedNotes = firebaseFirestore.collection("notes")
-                .whereArrayContains("shared", MyApp.myCloudUserData.getCloudUser().getUid());
+                userUid);
 
-        queryMyNotes.get().addOnCompleteListener(task -> {
+        Source source = Source.DEFAULT;
+        if (userSkippedLogin)
+            source = Source.CACHE;
+
+        queryMyNotes.get(source).addOnCompleteListener(task -> {
             if (task.isSuccessful()) {
+                if (userSkippedLogin) {
+                    firebaseFirestore.enableNetwork(); // in case it already got disabled while waiting for the task to finish.
+                    loadAllRemindersAndRegisterListeners(firebaseFirestore);
+                }
                 QuerySnapshot queryDocumentSnapshots = task.getResult();
                 assert queryDocumentSnapshots != null;
                 for (DocumentSnapshot documentSnapshot :
@@ -415,38 +439,43 @@ public class MyApp extends Application {
 
         });
 
-        querySharedNotes.get().addOnCompleteListener(task -> {
-            if (task.isSuccessful()) {
-                QuerySnapshot queryDocumentSnapshots = task.getResult();
-                assert queryDocumentSnapshots != null;
-                for (DocumentSnapshot documentSnapshot :
-                        queryDocumentSnapshots) {
-                    assert documentSnapshot != null;
-                    Note note = documentSnapshot.toObject(Note.class);
-                    assert note != null;
-                    DocumentReference documentReference = documentSnapshot.getReference();
+        if (!userSkippedLogin) {
+            Query querySharedNotes = firebaseFirestore.collection("notes")
+                    .whereArrayContains("shared", userUid);
+            querySharedNotes.get().addOnCompleteListener(task -> {
+                if (task.isSuccessful()) {
+                    QuerySnapshot queryDocumentSnapshots = task.getResult();
+                    assert queryDocumentSnapshots != null;
+                    for (DocumentSnapshot documentSnapshot :
+                            queryDocumentSnapshots) {
+                        assert documentSnapshot != null;
+                        Note note = documentSnapshot.toObject(Note.class);
+                        assert note != null;
+                        DocumentReference documentReference = documentSnapshot.getReference();
 
-                    if (MyApp.allNotes.get(documentReference.getId()) == null)
-                        MyApp.allNotes.put(documentReference.getId(), new OfflineNoteData(documentReference));
+                        if (MyApp.allNotes.get(documentReference.getId()) == null)
+                            MyApp.allNotes.put(documentReference.getId(), new OfflineNoteData(documentReference));
 
-                    OfflineNoteData offlineNoteData = MyApp.allNotes.get(documentReference.getId());
-                    assert offlineNoteData != null;
-                    offlineNoteData.setNote(note);
-                    if (note.isKeepOffline()) {
-                        ListenerRegistration listenerRegistration = documentReference.addSnapshotListener((documentSnapshotForListener, e) -> {
-                            if (e != null) {
-                                System.err.println("Listen failed: " + e);
-                            }
-                            assert documentSnapshotForListener != null;
-                            offlineNoteData.setNote(documentSnapshotForListener.toObject(Note.class));
-                        });
-                        offlineNoteData.setListenerRegistration(listenerRegistration);
+                        OfflineNoteData offlineNoteData = MyApp.allNotes.get(documentReference.getId());
+                        assert offlineNoteData != null;
+                        offlineNoteData.setNote(note);
+                        if (note.isKeepOffline()) {
+                            ListenerRegistration listenerRegistration = documentReference.addSnapshotListener((documentSnapshotForListener, e) -> {
+                                if (e != null) {
+                                    System.err.println("Listen failed: " + e);
+                                }
+                                assert documentSnapshotForListener != null;
+                                offlineNoteData.setNote(documentSnapshotForListener.toObject(Note.class));
+                            });
+                            offlineNoteData.setListenerRegistration(listenerRegistration);
+                        }
+
                     }
-
                 }
-            }
 
-        });
+            });
+        }
+
     }
 
     private static void loadAllRemindersAndRegisterListeners(FirebaseFirestore firebaseFirestore) {
@@ -462,71 +491,98 @@ public class MyApp extends Application {
 
                 });*/
 
+        Query queryCreatedReminders = firebaseFirestore.collectionGroup("Reminders").whereEqualTo("uid",
+                userUid);
 
-//        is this even necessary?
-        firebaseFirestore.collectionGroup("Reminders").whereEqualTo("uid",
-                MyApp.myCloudUserData.getCloudUser().getUid())
-                .addSnapshotListener((queryDocumentSnapshots, e) -> {
-                    if (e != null) {
-                        return;
+//      the created reminders are the ones which need to get loaded when the user is not a cloud user because
+//      the user can only notify himself.
+        if (userSkippedLogin) {
+            queryCreatedReminders.get(Source.CACHE).addOnCompleteListener(task -> {
+                if (task.isSuccessful()) {
+                    QuerySnapshot querySnapshot = task.getResult();
+                    assert querySnapshot != null;
+                    for (DocumentSnapshot documentSnapshot :
+                            querySnapshot.getDocuments()) {
+                        addReminderAndRegisterListener(documentSnapshot, firebaseFirestore);
                     }
+                    firebaseFirestore.disableNetwork();
+                }
 
-                    assert queryDocumentSnapshots != null;
-                    for (DocumentChange dc : queryDocumentSnapshots.getDocumentChanges()) {
-                        QueryDocumentSnapshot queryDocumentSnapshot = dc.getDocument();
-                        if (timeReminders.get(queryDocumentSnapshot.getId()) == null
-                                && locationReminders.get(queryDocumentSnapshot.getId()) == null)
-                            switch (dc.getType()) {
-                                case ADDED:
-                                    otherUserReminders.put(queryDocumentSnapshot.getId(),
-                                            new ReminderData(queryDocumentSnapshot.getReference(), getReminder(queryDocumentSnapshot)));
-                                    break;
-                                case MODIFIED:
-                                    break;
-                                case REMOVED:
-                                    otherUserReminders.remove(queryDocumentSnapshot.getId());
-                                    break;
-                            }
-                    }
-                });
+            });
 
-        firebaseFirestore.collectionGroup("Reminders").whereArrayContains("notifyUsers",
-                MyApp.myCloudUserData.getCloudUser().getUid())
-                .addSnapshotListener((queryDocumentSnapshots, e) -> {
-                    if (e != null) {
-                        return;
-                    }
 
-                    assert queryDocumentSnapshots != null;
-                    for (DocumentChange dc : queryDocumentSnapshots.getDocumentChanges()) {
-                        QueryDocumentSnapshot queryDocumentSnapshot = dc.getDocument();
+        }
+        if (!userSkippedLogin) {
+            queryCreatedReminders.addSnapshotListener((queryDocumentSnapshots, e) -> {
+
+                if (internetDisabledInternally || userSkippedLogin)
+                    firebaseFirestore.disableNetwork();
+                if (e != null) {
+                    return;
+                }
+
+                assert queryDocumentSnapshots != null;
+                for (DocumentChange dc : queryDocumentSnapshots.getDocumentChanges()) {
+                    QueryDocumentSnapshot queryDocumentSnapshot = dc.getDocument();
+                    if (timeReminders.get(queryDocumentSnapshot.getId()) == null
+                            && locationReminders.get(queryDocumentSnapshot.getId()) == null)
                         switch (dc.getType()) {
                             case ADDED:
-                                addReminderAndRegisterListener(queryDocumentSnapshot,firebaseFirestore);
+                                // might be a double in two of the maps - check first if it exists in the other map - only call this query
+                                // as soon as the query with notified is done that we don't get doubles.
+                                otherUserReminders.put(queryDocumentSnapshot.getId(),
+                                        new ReminderData(queryDocumentSnapshot.getReference(), getReminder(queryDocumentSnapshot)));
                                 break;
                             case MODIFIED:
-                                Map<String, Object> data = queryDocumentSnapshot.getData();
-//                                might cause problems - removing an alarm which does not exist.
-                                if ((boolean) data.get("done") || (boolean) data.get("trash")) {
-                                    String type = (String) data.get("type");
-                                    assert type != null;
-                                    if (type.equals("time") || type.equals("whatsapp time"))
-                                        removeReminderFromAlarmManager(queryDocumentSnapshot);
-                                    if (type.equals("user")) {
-                                        UserReminderData userReminderData = (UserReminderData) locationReminders.get(queryDocumentSnapshot.getId());
-                                        assert userReminderData != null;
-                                        userReminderData.setUserReminder(queryDocumentSnapshot.toObject(UserReminder.class));
-                                    }
-                                }
-                                if (!(boolean) data.get("done") && !(boolean) data.get("trash"))
-                                    addReminderAndRegisterListener(queryDocumentSnapshot,firebaseFirestore);
                                 break;
                             case REMOVED:
-                                removeReminder(dc.getDocument());
+                                otherUserReminders.remove(queryDocumentSnapshot.getId());
                                 break;
                         }
+                }
+            });
+
+            Query queryNotifyingReminders = firebaseFirestore.collectionGroup("Reminders").whereArrayContains("notifyUsers",
+                    MyApp.myCloudUserData.getCloudUser().getUid());
+
+            queryNotifyingReminders.addSnapshotListener((queryDocumentSnapshots, e) -> {
+                if (MyApp.internetDisabledInternally)
+                    firebaseFirestore.disableNetwork();
+                if (e != null) {
+                    return;
+                }
+
+                assert queryDocumentSnapshots != null;
+                for (DocumentChange dc : queryDocumentSnapshots.getDocumentChanges()) {
+                    QueryDocumentSnapshot queryDocumentSnapshot = dc.getDocument();
+                    switch (dc.getType()) {
+                        case ADDED:
+                            addReminderAndRegisterListener(queryDocumentSnapshot, firebaseFirestore);
+                            break;
+                        case MODIFIED:
+                            Map<String, Object> data = queryDocumentSnapshot.getData();
+//                                might cause problems - removing an alarm which does not exist.
+                            if ((boolean) data.get("done") || (boolean) data.get("trash")) {
+                                String type = (String) data.get("type");
+                                assert type != null;
+                                if (type.equals("time") || type.equals("whatsapp time"))
+                                    removeReminderFromAlarmManager(queryDocumentSnapshot);
+                                if (type.equals("user")) {
+                                    UserReminderData userReminderData = (UserReminderData) locationReminders.get(queryDocumentSnapshot.getId());
+                                    assert userReminderData != null;
+                                    userReminderData.setUserReminder(queryDocumentSnapshot.toObject(UserReminder.class));
+                                }
+                            }
+                            if (!(boolean) data.get("done") && !(boolean) data.get("trash"))
+                                addReminderAndRegisterListener(queryDocumentSnapshot, firebaseFirestore);
+                            break;
+                        case REMOVED:
+                            removeReminder(dc.getDocument());
+                            break;
                     }
-                });
+                }
+            });
+        }
 
 
     }
@@ -549,7 +605,6 @@ public class MyApp extends Application {
         }
         return reminder;
     }
-
 
     static void addReminderAndRegisterListener(DocumentSnapshot reminder, FirebaseFirestore firebaseFirestore) {
         DocumentReference reminderDocRef = reminder.getReference();
@@ -580,8 +635,9 @@ public class MyApp extends Application {
                         assert documentSnapshot != null;
                         CloudUser cloudUser = documentSnapshot.toObject(CloudUser.class);
                         assert cloudUser != null;
-                        userReminderUsers.put(documentReferenceUser.getId(), new CloudUserData(cloudUser, documentSnapshot.getReference()));
-
+                        CloudUserData newUserCloudUserData = new CloudUserData(cloudUser, documentSnapshot.getReference());
+                        userReminderUsers.put(documentReferenceUser.getId(), newUserCloudUserData);
+                        friends.put(newUserCloudUserData.getCloudUser().getUid(), newUserCloudUserData);
                     }
                 });
 
@@ -636,7 +692,7 @@ public class MyApp extends Application {
                         MyApp.locationReminders.values()) {
                     LocationReminder locationReminder = locationData.getLocationReminder();
                     if (!locationReminder.isDone() && !locationReminder.isTrash()) {
-                            GeoPoint geoPoint = locationReminder.getGeoPoint();
+                        GeoPoint geoPoint = locationReminder.getGeoPoint();
                         if (geoPoint != null) {
                             Location locationLocationReminder = new Location("");//provider name is unnecessary
                             locationLocationReminder.setLatitude(geoPoint.getLatitude());
@@ -789,10 +845,18 @@ public class MyApp extends Application {
             new Thread.UncaughtExceptionHandler() {
                 @Override
                 public void uncaughtException(@NonNull Thread thread, @NonNull Throwable ex) {
-                    forceStop.update("forceStop", true);
                     // here I do logging of exception to a db
+                    forceStop.update("forceStop", true);
+                    Intent intent = new Intent(getContext(), ShowErrorActivity.class);
+                    String[] stackTrace = new String[ex.getCause().getStackTrace().length];
+                    for (int i = 0; i < ex.getCause().getStackTrace().length; i++) {
+                        stackTrace[i] = ex.getCause().getStackTrace()[i].toString();
+                    }
+                    intent.putExtra("message", ex.getMessage());
+                    intent.putExtra("stackTrace", stackTrace);
+
                     PendingIntent myActivity = PendingIntent.getActivity(getContext(),
-                            192837, new Intent(getContext(), MainActivity.class),
+                            192837, intent,
                             PendingIntent.FLAG_ONE_SHOT);
 //                   trying to activate a service.
 //                    Intent myIntent = new Intent(getContext(), MyBroadcastReceiver.class);

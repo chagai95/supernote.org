@@ -36,6 +36,7 @@
             android:textOn="@string/disable" /> <!--text to be displayed whenever toggle button is checked-->
 
         <TextView
+            android:id="@+id/username_text_explaining_what_to_do"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/username_text_explaining_what_to_do"/>

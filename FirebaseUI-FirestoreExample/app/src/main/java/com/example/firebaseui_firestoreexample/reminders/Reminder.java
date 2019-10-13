@@ -14,7 +14,11 @@ public abstract class Reminder {
 
     Reminder(String type) {
         this.type = type;
-        this.uid = MyApp.myCloudUserData.getCloudUser().getUid();
+        this.uid = MyApp.userUid;
+        if(MyApp.userSkippedLogin){
+            notifyUsers = new ArrayList<>();
+            notifyUsers.add(uid);
+        }
     }
 
     @SuppressWarnings("unused")

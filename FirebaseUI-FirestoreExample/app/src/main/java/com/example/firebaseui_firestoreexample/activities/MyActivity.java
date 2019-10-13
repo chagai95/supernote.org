@@ -43,6 +43,8 @@ abstract public class MyActivity extends AppCompatActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         db = FirebaseFirestore.getInstance();
+        onCreateCalled = true;
+
     }
 
     Resources.Theme getTrafficLightTheme() {
@@ -73,6 +75,8 @@ abstract public class MyActivity extends AppCompatActivity {
     }
 
     private void askAboutDisablingInternalInternet() {
+
+        // add a cancel button(do nothing) and a button for disabling internal internet but not setting it to auto turn off.
         AlertDialog.Builder alert = new AlertDialog.Builder(c);
 
         alert.setTitle("disabling internal internet");

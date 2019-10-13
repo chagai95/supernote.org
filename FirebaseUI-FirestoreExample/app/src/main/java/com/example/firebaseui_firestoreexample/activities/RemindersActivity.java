@@ -37,8 +37,8 @@ import java.util.LinkedList;
 import java.util.Objects;
 
 public class RemindersActivity extends MyActivity {
-    public static HashMap<String, ReminderData> remindersMap = new HashMap<>();
-    private LinkedList<ReminderData> remindersList = new LinkedList<>();
+    public static HashMap<String, ReminderData> remindersMap ;
+    private LinkedList<ReminderData>            remindersList;
     Context c = this;
 
 
@@ -49,14 +49,18 @@ public class RemindersActivity extends MyActivity {
         hideKeyboard();
         loadReminders();
         swipeToRefresh();
-        setUpRecyclerView();
     }
 
     private void loadReminders() {
+        remindersMap = new HashMap<>();
+        remindersList = new LinkedList<>();
         OfflineNoteData offlineNoteData = MyApp.allNotes.get(getIntent().getStringExtra("noteID"));
         assert offlineNoteData != null;
+        db.enableNetwork();
         offlineNoteData.getDocumentReference().collection("Reminders").get().addOnCompleteListener(task -> {
             if (task.isSuccessful()) {
+                if (MyApp.internetDisabledInternally || MyApp.userSkippedLogin)
+                    db.disableNetwork();
                 QuerySnapshot result = task.getResult();
                 assert result != null;
                 for (DocumentSnapshot documentSnapshot :
@@ -64,6 +68,7 @@ public class RemindersActivity extends MyActivity {
                     remindersMap.put(documentSnapshot.getId(),
                             new ReminderData(documentSnapshot.getReference(), getReminder(documentSnapshot)));
                 }
+                setUpRecyclerView(); // change this to load after getting the reminders!!
 
             }
 
@@ -91,7 +96,6 @@ public class RemindersActivity extends MyActivity {
         return reminder;
     }
 
-
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater menuInflater = getMenuInflater();
@@ -115,7 +119,6 @@ public class RemindersActivity extends MyActivity {
 
         return super.onCreateOptionsMenu(menu);
     }
-
 
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
@@ -230,23 +233,21 @@ public class RemindersActivity extends MyActivity {
                         }));
     }
 
-
     private void addReminder(ReminderData reminderData) {
         if (MyApp.recyclerViewModeReminderShowDone) {
             if (MyApp.recyclerViewModeReminderShowOtherUsers) {
-                if (!reminderData.getReminder().getNotifyUsers().contains(MyApp.myCloudUserData.getCloudUser().getUid()))
+                if (!reminderData.getReminder().getNotifyUsers().contains(MyApp.userUid))
                     remindersList.add(reminderData);
-            } else if (reminderData.getReminder().getNotifyUsers().contains(MyApp.myCloudUserData.getCloudUser().getUid()))
+            } else if (reminderData.getReminder().getNotifyUsers().contains(MyApp.userUid))
                 remindersList.add(reminderData);
         } else if (!reminderData.getReminder().isDone()) {
             if (MyApp.recyclerViewModeReminderShowOtherUsers) {
-                if (!reminderData.getReminder().getNotifyUsers().contains(MyApp.myCloudUserData.getCloudUser().getUid()))
+                if (!reminderData.getReminder().getNotifyUsers().contains(MyApp.userUid))
                     remindersList.add(reminderData);
-            } else if (reminderData.getReminder().getNotifyUsers().contains(MyApp.myCloudUserData.getCloudUser().getUid()))
+            } else if (reminderData.getReminder().getNotifyUsers().contains(MyApp.userUid))
                 remindersList.add(reminderData);
         }
     }
-
 
     private void swipeToRefresh() {
         SwipeRefreshLayout pullToRefresh = findViewById(R.id.pullToRefreshRemindersActivity);

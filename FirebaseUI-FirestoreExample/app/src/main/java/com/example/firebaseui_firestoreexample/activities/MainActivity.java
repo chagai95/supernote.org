@@ -118,6 +118,8 @@ public class MainActivity extends MyActivity {
         }
     }
 
+
+
     private void locationPermission() {
 
 //        perhaps better to call in login activity! trying to call at the end of onCreate to avoid unexpected changes whilst waiting for user to accept.
@@ -262,6 +264,8 @@ public class MainActivity extends MyActivity {
     }
 
 
+
+
     private void createCacheLoaderTimerTask() {
         Calendar today = Calendar.getInstance();
         today.set(Calendar.HOUR_OF_DAY, 11);
@@ -356,10 +360,13 @@ public class MainActivity extends MyActivity {
 
             @Override
             public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
-                if (MyApp.recyclerViewMode.equals("trash"))
+                if (MyApp.recyclerViewMode.equals("trash")) {
+                    Toast.makeText(c, "note restored from trash", Toast.LENGTH_SHORT).show();
                     adapter.untrashItem(viewHolder.getAdapterPosition());
-                else
+                } else{
+                    Toast.makeText(c, "note trashed", Toast.LENGTH_SHORT).show();
                     adapter.trashItem(viewHolder.getAdapterPosition());
+                }
 
                 if (direction == ItemTouchHelper.LEFT) {
                     adapter.deleteItem(viewHolder.getAdapterPosition());

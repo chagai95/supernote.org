@@ -10,7 +10,10 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.fragment.app.DialogFragment;
 
+import com.example.firebaseui_firestoreexample.MyApp;
 import com.example.firebaseui_firestoreexample.firestore_data.CloudUserData;
+import com.example.firebaseui_firestoreexample.firestore_data.LocationReminderData;
+import com.example.firebaseui_firestoreexample.firestore_data.TimeReminderData;
 import com.example.firebaseui_firestoreexample.reminders.TimeReminder;
 import com.example.firebaseui_firestoreexample.reminders.WhatsappTimeReminder;
 import com.google.firebase.Timestamp;
@@ -29,13 +32,13 @@ import java.util.Objects;
 public class MyDatePickerFragment extends DialogFragment {
 
     private Context c;
-    private DocumentReference documentReference;
+    private DocumentReference noteDocumentReference;
     private String whatsappNumber, whatsappMessage;
     private ArrayList<String> usernames;
     private HashMap<String, CloudUserData> userSuggestions;
 
-    public MyDatePickerFragment(DocumentReference documentReference, Context c, String whatsappNumber, String whatsappMessage, ArrayList<String> usernames, HashMap<String, CloudUserData> userSuggestions) {
-        this.documentReference = documentReference;
+    public MyDatePickerFragment(DocumentReference noteDocumentReference, Context c, String whatsappNumber, String whatsappMessage, ArrayList<String> usernames, HashMap<String, CloudUserData> userSuggestions) {
+        this.noteDocumentReference = noteDocumentReference;
         this.c = c;
         this.whatsappNumber = whatsappNumber;
         this.whatsappMessage = whatsappMessage;
@@ -85,6 +88,7 @@ public class MyDatePickerFragment extends DialogFragment {
         final int mHour = cal.get(Calendar.HOUR_OF_DAY);
         final int mMinute = cal.get(Calendar.MINUTE);
 
+
         // Launch Time Picker Dialog
         TimePickerDialog timePickerDialog = new TimePickerDialog(getActivity(),
                 (view, hourOfDay, minute) -> {
@@ -99,27 +103,50 @@ public class MyDatePickerFragment extends DialogFragment {
 
 
 //                    adding a whatsapp reminder to report a bug - these are saved in a note.
-                        if (documentReference == null) {
+                        if (noteDocumentReference == null) {
                             whatsappNumber = "4915905872952";
-                            documentReference = FirebaseFirestore.getInstance()
+                            noteDocumentReference = FirebaseFirestore.getInstance()
                                     .collection("notes").document("bugReports");
 
                         }
 
+                        FirebaseFirestore.getInstance().enableNetwork();
 //                        if the whatsappNumber is an empty string it is a time reminder
 //                        otherwise it is a whatsapp reminder.
                         if (whatsappNumber.equals("")) {
                             TimeReminder timeReminder = new TimeReminder(new Timestamp(Objects.requireNonNull(dateReminder)));
                             timeReminder.setNotifyUsers(getUserIDs(usernames, userSuggestions));
-                            documentReference.collection("Reminders")
-                                    .add(timeReminder);
+                            noteDocumentReference.collection("Reminders")
+                                    .add(timeReminder).addOnCompleteListener(task -> {
+                                               if(task.isSuccessful()){
+                                                   DocumentReference documentReference = task.getResult();
+                                                   assert documentReference != null;
+                                                   MyApp.timeReminders.put(Objects.requireNonNull(task.getResult()).getId(),
+                                                           new TimeReminderData(task.getResult(), timeReminder));
+//                            disabling network here because there is no reminder listener.
+                                                   if(MyApp.userSkippedLogin)
+                                                       FirebaseFirestore.getInstance().disableNetwork();
+                                               }
+
+                                            });
                         } else {
                             String whatsappNumberModified = whatsappNumberModified();
                             WhatsappTimeReminder whatsappTimeReminder = new WhatsappTimeReminder(
                                     new Timestamp(Objects.requireNonNull(dateReminder)), whatsappNumberModified, whatsappMessage);
                             whatsappTimeReminder.setNotifyUsers(getUserIDs(usernames, userSuggestions));
-                            documentReference.collection("Reminders")
-                                    .add(whatsappTimeReminder);
+                            noteDocumentReference.collection("Reminders")
+                                    .add(whatsappTimeReminder).addOnCompleteListener(task -> {
+                                if(task.isSuccessful()){
+                                    DocumentReference documentReference = task.getResult();
+                                    assert documentReference != null;
+                                    MyApp.timeReminders.put(Objects.requireNonNull(task.getResult()).getId(),
+                                            new TimeReminderData(task.getResult(), whatsappTimeReminder));
+//                            disabling network here because there is no reminder listener.
+                                    if(MyApp.userSkippedLogin)
+                                        FirebaseFirestore.getInstance().disableNetwork();
+                                }
+
+                            });
                         }
 
                     } catch (ParseException e) {

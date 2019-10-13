@@ -83,5 +83,7 @@ public class NetworkChangeReceiver extends BroadcastReceiver {
         return null;
     }
 
+//  check wifi strength - find a listener for this as well.   https://stackoverflow.com/questions/13932724/getting-wifi-signal-strength-in-android
+
 
 }
