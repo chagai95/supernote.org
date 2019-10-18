@@ -941,16 +941,18 @@ public class EditNoteActivity extends MyActivity {
             int checkIfOneBigAssWord = description.substring(0, titleLength).lastIndexOf(" ");
             if (checkIfOneBigAssWord <= 0)
                 checkIfOneBigAssWord = 40;
-            if (shortEnough) {
-                documentRef.update("title", description);
-                documentRef.update("history", FieldValue.arrayUnion(description)).addOnSuccessListener(aVoid -> successfulUpload())
-                        .addOnFailureListener(this::unsuccessfulUpload);
-            } else {
-                documentRef.update("title", description.substring(0, checkIfOneBigAssWord));
-                documentRef.update("history", FieldValue.arrayUnion(description.substring(0, checkIfOneBigAssWord)))
-                        .addOnSuccessListener(aVoid -> successfulUpload())
-                        .addOnFailureListener(this::unsuccessfulUpload);
-            }
+            if (documentRef != null)
+                if (shortEnough) {
+
+                    documentRef.update("title", description);
+                    documentRef.update("history", FieldValue.arrayUnion(description)).addOnSuccessListener(aVoid -> successfulUpload())
+                            .addOnFailureListener(this::unsuccessfulUpload);
+                } else {
+                    documentRef.update("title", description.substring(0, checkIfOneBigAssWord));
+                    documentRef.update("history", FieldValue.arrayUnion(description.substring(0, checkIfOneBigAssWord)))
+                            .addOnSuccessListener(aVoid -> successfulUpload())
+                            .addOnFailureListener(this::unsuccessfulUpload);
+                }
 
 
         }

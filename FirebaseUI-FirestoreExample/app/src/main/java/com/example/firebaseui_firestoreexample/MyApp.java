@@ -439,6 +439,7 @@ public class MyApp extends Application {
 
         });
 
+        // add listener!!
         if (!userSkippedLogin) {
             Query querySharedNotes = firebaseFirestore.collection("notes")
                     .whereArrayContains("shared", userUid);
