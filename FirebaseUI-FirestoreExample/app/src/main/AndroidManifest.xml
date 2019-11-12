@@ -12,15 +12,24 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme"
         tools:ignore="AllowBackup,GoogleAppIndexingWarning">
-        <activity android:name=".activities.ShowErrorActivity"></activity>
-        <activity android:name=".activities.FriendsActivity" />
-        <activity android:name=".activities.RemindersActivity" />
-        <activity android:name=".activities.WhatsappActivity" />
+        <activity
+            android:name=".activities.HistoryActivity"
+            android:parentActivityName=".activities.EditNoteActivity" />
+        <activity android:name=".activities.ShowErrorActivity" />
+        <activity android:name=".activities.FriendsActivity"
+            android:parentActivityName=".activities.SettingsActivity"
+            android:launchMode="singleTop"/>
+        <activity
+            android:name=".activities.RemindersActivity"
+            android:parentActivityName=".activities.EditNoteActivity" />
+        <activity android:name=".activities.OpenFragmentActivity" />
         <activity android:name=".activities.LoginActivity" />
-        <activity android:name=".activities.SettingsActivity" />
+        <activity android:name=".activities.SettingsActivity"
+            android:parentActivityName=".activities.MainActivity"/>
         <activity android:name=".activities.TitleHistoryActivity" />
         <activity
             android:name=".activities.EditNoteActivity"
+            android:launchMode="singleTop"
             android:parentActivityName=".activities.MainActivity" />
         <activity
             android:name=".activities.MainActivity"
@@ -33,7 +42,7 @@
         </activity>
 
         <receiver
-            android:name=".utils.NetworkChangeReceiver"
+            android:name=".receivers.NetworkChangeReceiver"
             android:exported="true">
             <intent-filter>
                 <action
@@ -75,13 +84,13 @@
             </intent-filter>
         </service>
     </application>
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_UPDATES" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
 </manifest>

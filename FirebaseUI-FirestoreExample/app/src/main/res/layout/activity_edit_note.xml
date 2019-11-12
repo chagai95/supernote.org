@@ -9,6 +9,8 @@
     android:weightSum="100"
     >
 
+
+
    <!--     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
             android:id="@+id/pullToRefreshEditNoteActivity"
             android:layout_width="match_parent"

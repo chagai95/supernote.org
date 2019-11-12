@@ -2,16 +2,22 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
+        android:id="@+id/keep_listener_on"
+        android:icon="@drawable/ic_offline_pin_black"
+        android:title="@string/keep_listener_on"
+        app:showAsAction="ifRoom"/>
+    <item
         android:id="@+id/save_note"
         android:icon="@drawable/ic_save"
         android:title="Save"
         app:showAsAction="ifRoom"/>
+    <item
+        android:id="@+id/refreshTrafficLight"
+        android:icon="@drawable/ic_action_refresh"
+        android:title="refresh"
+        app:showAsAction="ifRoom"/>
     <item android:id="@+id/app_intern_internet_toggle_in_note_activity"
         android:title=""/>
-    <item android:id="@+id/refreshTrafficLight"
-        android:title="refresh internet state"/>
-    <item android:id="@+id/keep_listener_on"
-        android:title="@string/keep_listener_on"/>
     <!--<item android:id="@+id/save_for_load_to_cache"
         android:title="@string/activate_load_to_cache"/>-->
 
@@ -24,7 +30,7 @@
     <item
         android:id="@+id/action_show_reminder"
         android:orderInCategory="100"
-        android:title="show reminder"
+        android:title="show reminders"
         app:showAsAction="never" />
 
 
@@ -34,7 +40,10 @@
         android:title="@string/share_with_another_user"
         app:showAsAction="never" />
 
+    <item android:id="@+id/history"
+        android:title="history"/>
+<!--
     <item android:id="@+id/title_history"
-        android:title="title history"/>
+        android:title="title history"/>-->
 
 </menu>

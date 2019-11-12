@@ -14,7 +14,7 @@ import com.example.firebaseui_firestoreexample.R;
 
 import java.util.List;
 
-public class TitleHistoryAdapter extends RecyclerView.Adapter<TitleHistoryAdapter.TitleHistoryHolder> {
+public class HistoryAdapter extends RecyclerView.Adapter<HistoryAdapter.HistoryHolder> {
 
 
     //this activity we will use to inflate the layout
@@ -24,23 +24,23 @@ public class TitleHistoryAdapter extends RecyclerView.Adapter<TitleHistoryAdapte
     private List<String> noteHistoryList;
 
     //getting the activity and String list with constructor
-    public TitleHistoryAdapter(Context cOtherActivity, List<String> noteHistoryList) {
+    public HistoryAdapter(Context cOtherActivity, List<String> noteHistoryList) {
         this.cOtherActivity = cOtherActivity;
         this.noteHistoryList = noteHistoryList;
     }
 
     @NonNull
     @Override
-    public TitleHistoryHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+    public HistoryHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         //inflating and returning our view holder
         LayoutInflater inflater = LayoutInflater.from(cOtherActivity);
-        @SuppressLint("InflateParams") View view = inflater.inflate(R.layout.note_title_history_item, null);
-        return new TitleHistoryHolder(view);
+        @SuppressLint("InflateParams") View view = inflater.inflate(R.layout.note_history_item, null);
+        return new HistoryHolder(view);
     }
 
     @Override
-    public void onBindViewHolder(@NonNull TitleHistoryHolder holder, int position) {
-            holder.titleTextView.setText(noteHistoryList.get(position));
+    public void onBindViewHolder(@NonNull HistoryHolder holder, int position) {
+        holder.titleTextView.setText(noteHistoryList.get(position));
     }
 
 
@@ -50,14 +50,14 @@ public class TitleHistoryAdapter extends RecyclerView.Adapter<TitleHistoryAdapte
     }
 
 
-    class TitleHistoryHolder extends RecyclerView.ViewHolder {
+    class HistoryHolder extends RecyclerView.ViewHolder {
 
         TextView titleTextView;
 
-        TitleHistoryHolder(View itemView) {
+        HistoryHolder(View itemView) {
             super(itemView);
 
-            titleTextView = itemView.findViewById(R.id.note_title_history_text_view_title);
+            titleTextView = itemView.findViewById(R.id.note_history_text_view_description);
         }
     }
 }

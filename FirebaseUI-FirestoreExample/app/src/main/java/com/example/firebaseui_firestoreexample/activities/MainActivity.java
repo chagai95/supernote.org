@@ -16,6 +16,7 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.View;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
@@ -23,7 +24,10 @@ import android.widget.LinearLayout;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.widget.SearchView;
+import androidx.appcompat.widget.Toolbar;
 import androidx.core.app.ActivityCompat;
 import androidx.fragment.app.DialogFragment;
 import androidx.recyclerview.widget.ItemTouchHelper;
@@ -35,6 +39,10 @@ import com.example.firebaseui_firestoreexample.MyApp;
 import com.example.firebaseui_firestoreexample.Note;
 import com.example.firebaseui_firestoreexample.R;
 import com.example.firebaseui_firestoreexample.activities.adapters.NoteAdapter;
+import com.example.firebaseui_firestoreexample.activities.adapters.SearchAdapter;
+import com.example.firebaseui_firestoreexample.firestore_data.NoteData;
+import com.example.firebaseui_firestoreexample.firestore_data.TimeReminderData;
+import com.example.firebaseui_firestoreexample.reminders.TimeReminder;
 import com.example.firebaseui_firestoreexample.utils.InternetThread;
 import com.example.firebaseui_firestoreexample.utils.MyActivityLifecycleCallbacks;
 import com.example.firebaseui_firestoreexample.utils.MyDatePickerFragment;
@@ -46,21 +54,33 @@ import com.firebase.ui.firestore.FirestoreRecyclerOptions;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.CollectionReference;
+import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.Query;
 
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Date;
+import java.util.List;
 import java.util.Objects;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.TimeUnit;
+
+import static com.example.firebaseui_firestoreexample.MyApp.*;
 
 public class MainActivity extends MyActivity {
 
 //    Intent mServiceIntent;
 //    private SensorService mSensorService;
 
+    SearchView searchView;
 
+    RecyclerView recyclerView;
     private NoteAdapter adapter;
+    private NoteAdapter adapterAllNotes;
+    private NoteAdapter adapterShared;
+    private NoteAdapter adapterTrash;
     FirebaseUser firebaseUser;
 
     boolean onCreateCalled;
@@ -68,6 +88,12 @@ public class MainActivity extends MyActivity {
     private TrafficLight lastTrafficLightState;
 
     private Context c = this;
+    private String searchText = "";
+    String[] filterOptions;
+    boolean[] checkedItemsFilterOptions;
+    String[] sortOptions;
+    private int sort;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -113,11 +139,52 @@ public class MainActivity extends MyActivity {
 
             reception();
 
+            setFilterAndSortOptions();
+
             locationPermission();
 
         }
     }
 
+    private void setFilterAndSortOptions() {
+        sortOptions = new String[]{"Note Title", "Date Created"};
+        sort = 0; // note title
+        filterOptions = new String[]{"note title", "note body", "shared users"};
+        checkedItemsFilterOptions = new boolean[filterOptions.length];
+        for (int i = 0; i < checkedItemsFilterOptions.length; i++) {
+            checkedItemsFilterOptions[i] = true;
+        }
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.N)
+    private void setUpSearchView(Menu menu) {
+        searchView = (SearchView) menu.findItem(R.id.action_search_all_notes).getActionView();
+
+        searchView.setOnSearchClickListener(v -> showSortAndFilterToolbar());
+
+        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String s) {
+                return false;
+            }
+
+            @RequiresApi(api = Build.VERSION_CODES.N)
+            @Override
+            public boolean onQueryTextChange(String s) {
+                recyclerViewSearch(s);
+                searchText = s;
+                return false;
+            }
+        });
+
+        searchView.setOnCloseListener(() -> {
+            setUpRecyclerView();
+            removeSortAndFilterToolbar();
+            recreate();// do not understand why this is necessary
+
+            return false;
+        });
+    }
 
 
     private void locationPermission() {
@@ -213,6 +280,8 @@ public class MainActivity extends MyActivity {
 
     private void startAppOffline() {
         //                probably better to use 2 different booleans one only for the anonymous user a bit repetitive but probably better.
+        // I deleted some stuff accidentally so this might not be working properly if at all
+        // move this method to MyApp
         if (!MyApp.appStarted)
             db.collection("utils").document("startAppOffline")
                     .get().addOnCompleteListener(task -> {
@@ -232,8 +301,7 @@ public class MainActivity extends MyActivity {
         if (MyApp.userSkippedLogin) {
             pullToRefresh.setRefreshing(false);
             pullToRefresh.setEnabled(false);
-        }
-        else
+        } else
             pullToRefresh.setOnRefreshListener(() -> {
                 if (MyApp.internetDisabledInternally)
                     askAboutActivatingInternalInternet();
@@ -242,7 +310,6 @@ public class MainActivity extends MyActivity {
                 pullToRefresh.setRefreshing(false);
             });
     }
-
 
 
     private void disablingInternetIfAnonymousUser() {
@@ -255,7 +322,6 @@ public class MainActivity extends MyActivity {
     }
 
 
-
     private void login() {
         db.enableNetwork();
         MyApp.internetDisabledInternally = false;
@@ -264,8 +330,7 @@ public class MainActivity extends MyActivity {
     }
 
 
-
-
+    @SuppressWarnings("unused")
     private void createCacheLoaderTimerTask() {
         Calendar today = Calendar.getInstance();
         today.set(Calendar.HOUR_OF_DAY, 11);
@@ -321,33 +386,37 @@ public class MainActivity extends MyActivity {
 
 
     private void setUpRecyclerView() {
+        hideKeyboard();
+
         switch (MyApp.recyclerViewMode) {
             case "trash":
-                recyclerViewTrash();
+                setTitle("Trash");
+                setUpRecyclerViewWithQuery(queryTrashedNotes);
                 break;
             case "shared":
-                recyclerViewShared();
-                break;
-            case "search":
-                recyclerViewSearch();
+                setTitle("Share");
+                setUpRecyclerViewWithQuery(querySharedNotes);
                 break;
             default:
-                recyclerViewAllNotes();
-
+                setTitle("All Notes");
+                // on the first run of the app this is quicker than our initialisation in MyApp so we initialise here.
+                queryNotTrashedNotes = db.collection("notes").whereEqualTo("creator", userUid).whereEqualTo("trash", false);
+                setUpRecyclerViewWithQuery(queryNotTrashedNotes);
         }
-        hideKeyboard();
     }
 
     private void setUpRecyclerViewWithQuery(Query query) {
+
         FirestoreRecyclerOptions<Note> options = new FirestoreRecyclerOptions.Builder<Note>()
                 .setQuery(query, Note.class)
                 .build();
-
-        adapter = new NoteAdapter(options, this, getIntent().getBooleanExtra("startAppAndCloseMainActivity", false));
+        adapter = new NoteAdapter(options);
         getIntent().putExtra("startAppAndCloseMainActivity", false);
-        RecyclerView recyclerView = findViewById(R.id.recycler_view);
-        recyclerView.setHasFixedSize(true);
-        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        if (recyclerView == null) {
+            recyclerView = findViewById(R.id.recycler_view);
+            recyclerView.setHasFixedSize(true);
+            recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        }
         recyclerView.setAdapter(adapter);
 
         new ItemTouchHelper(new ItemTouchHelper.SimpleCallback(0,
@@ -385,27 +454,106 @@ public class MainActivity extends MyActivity {
         });
     }
 
-    private void recyclerViewSearch() {
-        Query query = db.collection("notes").whereEqualTo("creator", firebaseUser.getUid());// change this to have the search query.
+    @RequiresApi(api = Build.VERSION_CODES.N)
+    private void recyclerViewSearch(String searchText) {
+//        Query query = db.collection("notes").whereEqualTo("creator", firebaseUser.getUid()).whereEqualTo("trash", true);  change this to have the search query.
+//        setUpRecyclerViewWithQuery(query);
+//        work around:
 
-        setUpRecyclerViewWithQuery(query);
+        List<NoteData> noteList = new ArrayList<>();
+
+//        note title
+        if (checkedItemsFilterOptions[0])
+            for (NoteData noteData :
+                    MyApp.allNotes.values()) {
+                if (noteData.getNote().getTitle().contains(searchText))
+                    if (!noteList.contains(noteData))
+                        noteList.add(noteData);
+            }
+//        note body
+        if (checkedItemsFilterOptions[1])
+            for (NoteData noteData :
+                    MyApp.allNotes.values()) {
+                if (noteData.getNote().getDescription().contains(searchText))
+                    if (!noteList.contains(noteData))
+                        noteList.add(noteData);
+            }
+
+        if (searchText.equals("missed reminders")) {
+            noteList.clear();
+            for (TimeReminderData timeReminderData :
+                timeReminders.values()) {
+                if(timeReminderData.getTimeReminder().getTimestamp().toDate().before(new Date())
+                    && !timeReminderData.getTimeReminder().isDone()) {
+                    CollectionReference coll = timeReminderData.getDocumentReference().getParent();
+                    DocumentReference documentReferenceNote = coll.getParent();
+                    assert documentReferenceNote != null;
+                    NoteData noteData = allNotes.get(documentReferenceNote.getId());
+                    if (!noteList.contains(noteData))
+                        noteList.add(noteData);
+                }
+
+            }
+        }
+
+        sortSearch(noteList);
+
+        SearchAdapter searchAdapter = new SearchAdapter(c, noteList);
+
+        RecyclerView recyclerView = findViewById(R.id.recycler_view);
+        recyclerView.setHasFixedSize(true);
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        recyclerView.setAdapter(searchAdapter);
+
+        new ItemTouchHelper(new ItemTouchHelper.SimpleCallback(0,
+
+                ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT) {
+            @Override
+            public boolean onMove(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder, @NonNull RecyclerView.ViewHolder target) {
+                return false;
+            }
+
+            @Override
+            public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
+                if (direction == ItemTouchHelper.RIGHT) {
+                    if (MyApp.recyclerViewMode.equals("trash")) {
+                        Toast.makeText(c, "note restored from trash", Toast.LENGTH_SHORT).show();
+                        searchAdapter.untrashItem(viewHolder.getAdapterPosition());
+                    } else {
+                        Toast.makeText(c, "note trashed", Toast.LENGTH_SHORT).show();
+                        searchAdapter.trashItem(viewHolder.getAdapterPosition());
+                    }
+                }
+                if (direction == ItemTouchHelper.LEFT) {
+                    searchAdapter.deleteItem(viewHolder.getAdapterPosition());
+                    Toast.makeText(c, "deleted", Toast.LENGTH_SHORT).show();
+                }
+            }
+        }).attachToRecyclerView(recyclerView);
+
+        searchAdapter.setOnItemClickListener((documentSnapshot, position) -> {
+            String id = documentSnapshot.getId();
+            Intent intent = new Intent(MainActivity.this, EditNoteActivity.class);
+            intent.putExtra("noteID", id);
+            MainActivity.this.startActivity(intent);
+
+        });
     }
 
-    private void recyclerViewShared() {
-        Query query = db.collection("notes").whereArrayContains("shared", MyApp.userUid);
-        setUpRecyclerViewWithQuery(query);
-
+    @RequiresApi(api = Build.VERSION_CODES.N)
+    private void sortSearch(List<NoteData> noteList) {
+        switch (sortOptions[sort]) {
+            case "Date Created":
+                noteList.sort((o1, o2) ->
+                        o1.getNote().getCreated().toDate().compareTo(o2.getNote().getCreated().toDate()));
+                break;
+            case "Note Title":
+                noteList.sort((o1, o2) ->
+                        o1.getNote().getTitle().toLowerCase().compareTo(o2.getNote().getTitle().toLowerCase()));
+                break;
+        }
     }
 
-    private void recyclerViewTrash() {
-        Query query = db.collection("notes").whereEqualTo("creator", firebaseUser.getUid()).whereEqualTo("trash", true);
-        setUpRecyclerViewWithQuery(query);
-    }
-
-    private void recyclerViewAllNotes() {
-        Query query = db.collection("notes").whereEqualTo("creator", firebaseUser.getUid()).whereEqualTo("trash", false);
-        setUpRecyclerViewWithQuery(query);
-    }
 
 
     @Override
@@ -450,10 +598,13 @@ public class MainActivity extends MyActivity {
         return super.isNetworkAvailable();
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.N)
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater menuInflater = getMenuInflater();
         menuInflater.inflate(R.menu.main_activity_menu, menu);
+
+        setUpSearchView(menu);
 
         if (MyApp.userSkippedLogin)
             setMenuForUserSkippedLogin(menu);
@@ -484,6 +635,7 @@ public class MainActivity extends MyActivity {
         sharedMenuItem.setVisible(false);
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.N)
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         switch (item.getItemId()) {
@@ -510,15 +662,21 @@ public class MainActivity extends MyActivity {
                 return true;
             case R.id.trash:
                 MyApp.recyclerViewMode = "trash";
+                setTitle("Trash");
                 recreate();
                 return true;
             case R.id.shared_notes:
                 MyApp.recyclerViewMode = "shared";
+                setTitle("Share");
                 recreate();
                 return true;
             case R.id.allNotes:
                 MyApp.recyclerViewMode = "allNotes";
+                setTitle("All Notes");
                 recreate();
+                return true;
+            case R.id.missed_reminders:
+                showNotesWithMissedReminders();
                 return true;
             case R.id.report_bug:
                 reportBug();
@@ -526,6 +684,94 @@ public class MainActivity extends MyActivity {
             default:
                 return super.onOptionsItemSelected(item);
         }
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.N)
+    private void showNotesWithMissedReminders() {
+        recyclerViewSearch("missed reminders");
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.N)
+    private void showSortAndFilterToolbar() {
+        Toolbar toolbar = findViewById(R.id.sort_and_filter_toolbar);
+        toolbar.setVisibility(View.VISIBLE);
+        getMenuInflater().inflate(R.menu.bot_toolbar, toolbar.getMenu());
+        toolbar.setOnMenuItemClickListener(item -> {
+            switch (item.getItemId()) {
+                case R.id.filter:
+                    createFilterDialog();
+                    return true;
+                case R.id.sort:
+                    createSortDialog();
+                    return true;
+            }
+            return super.onOptionsItemSelected(item);
+        });
+
+        FloatingActionButton buttonAddNote = findViewById(R.id.button_add_note);
+        buttonAddNote.setVisibility(View.GONE);
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.N)
+    private void createSortDialog() {
+        AlertDialog.Builder alert = new AlertDialog.Builder(c);
+
+        alert.setTitle("Sort Search");
+
+        alert.setSingleChoiceItems(sortOptions, sort,
+                (dialog, which) -> sort = which);
+
+
+        alert.setPositiveButton("search", (dialog, whichButton) -> recyclerViewSearch(searchText));
+
+        alert.setNegativeButton("cancel", (dialog, whichButton) -> {
+            //cancel
+        });
+
+        AlertDialog alertDialog = alert.create();
+        alertDialog.show();
+        Button btnPositive = alertDialog.getButton(AlertDialog.BUTTON_POSITIVE);
+        Button btnNegative = alertDialog.getButton(AlertDialog.BUTTON_NEGATIVE);
+
+        LinearLayout.LayoutParams layoutParams = (LinearLayout.LayoutParams) btnPositive.getLayoutParams();
+        layoutParams.weight = 10;
+        btnPositive.setLayoutParams(layoutParams);
+        btnNegative.setLayoutParams(layoutParams);
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.N)
+    private void createFilterDialog() {
+        AlertDialog.Builder alert = new AlertDialog.Builder(c);
+
+        alert.setTitle("Filter Search");
+
+
+        alert.setMultiChoiceItems(filterOptions, checkedItemsFilterOptions,
+                (dialog, which, isChecked) -> checkedItemsFilterOptions[which] = isChecked);
+
+
+        alert.setPositiveButton("search", (dialog, whichButton) -> recyclerViewSearch(searchText));
+
+        alert.setNegativeButton("cancel", (dialog, whichButton) -> {
+            //cancel
+        });
+
+        AlertDialog alertDialog = alert.create();
+        alertDialog.show();
+        Button btnPositive = alertDialog.getButton(AlertDialog.BUTTON_POSITIVE);
+        Button btnNegative = alertDialog.getButton(AlertDialog.BUTTON_NEGATIVE);
+
+        LinearLayout.LayoutParams layoutParams = (LinearLayout.LayoutParams) btnPositive.getLayoutParams();
+        layoutParams.weight = 10;
+        btnPositive.setLayoutParams(layoutParams);
+        btnNegative.setLayoutParams(layoutParams);
+    }
+
+    private void removeSortAndFilterToolbar() {
+        Toolbar view = findViewById(R.id.sort_and_filter_toolbar);
+        view.setVisibility(View.GONE);
+        FloatingActionButton buttonAddNote = findViewById(R.id.button_add_note);
+        buttonAddNote.setVisibility(View.VISIBLE);
     }
 
     private void logout() {
@@ -538,7 +784,7 @@ public class MainActivity extends MyActivity {
 
     private void reportBug() {
         if (isNetworkAvailable()) {
-            Uri uriUrl = Uri.parse("https://api.whatsapp.com/send?phone=4915905872952&text=my%20name%20is%20_writeyournamehere_%20.%20nice%20to%20meet%20you%20chagai%20&source=&data=");
+            Uri uriUrl = Uri.parse("https://api.whatsapp.com/send?phone=4915905872952&text=my%20name%20is%20_writeyournamehere_%20.%20nice%20to%20meet%20you%20chagai.&source=&data=");
             Intent launchBrowser = new Intent(Intent.ACTION_VIEW, uriUrl);
             startActivity(launchBrowser);
         } else addWhatsappReminderToReportBug();
@@ -562,7 +808,7 @@ public class MainActivity extends MyActivity {
         //only works once for some reason
         alert.setPositiveButton("set time", (dialog, whichButton) -> {
             Log.i("AlertDialog", "TextEntry 2 Entered " + messageEditText.getText().toString());
-            showDatePicker("", messageEditText.getText().toString());
+            showDatePicker(messageEditText.getText().toString());
         });
 
         alert.setNegativeButton("Cancel", (dialog, whichButton) -> {
@@ -581,8 +827,10 @@ public class MainActivity extends MyActivity {
         inputMethodManager.toggleSoftInput(InputMethodManager.SHOW_FORCED, 0);
     }
 
-    public void showDatePicker(String number, String message) {
-        DialogFragment newFragment = new MyDatePickerFragment(null, c, number, message, null, null);
+    public void showDatePicker(String message) {
+        TimeReminder timeReminder = new TimeReminder();
+        timeReminder.setWhatsappMessage(message);
+        DialogFragment newFragment = new MyDatePickerFragment(null, c, timeReminder);
         newFragment.show(getSupportFragmentManager(), "date picker");
     }
 

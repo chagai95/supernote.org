@@ -12,7 +12,6 @@ import androidx.fragment.app.DialogFragment;
 
 import com.example.firebaseui_firestoreexample.MyApp;
 import com.example.firebaseui_firestoreexample.firestore_data.CloudUserData;
-import com.example.firebaseui_firestoreexample.firestore_data.LocationReminderData;
 import com.example.firebaseui_firestoreexample.firestore_data.TimeReminderData;
 import com.example.firebaseui_firestoreexample.reminders.TimeReminder;
 import com.example.firebaseui_firestoreexample.reminders.WhatsappTimeReminder;
@@ -33,23 +32,12 @@ public class MyDatePickerFragment extends DialogFragment {
 
     private Context c;
     private DocumentReference noteDocumentReference;
-    private String whatsappNumber, whatsappMessage;
-    private ArrayList<String> usernames;
-    private HashMap<String, CloudUserData> userSuggestions;
+    private TimeReminder timeReminder;
 
-    public MyDatePickerFragment(DocumentReference noteDocumentReference, Context c, String whatsappNumber, String whatsappMessage, ArrayList<String> usernames, HashMap<String, CloudUserData> userSuggestions) {
+    public MyDatePickerFragment(DocumentReference noteDocumentReference, Context c,TimeReminder timeReminder) {
         this.noteDocumentReference = noteDocumentReference;
         this.c = c;
-        this.whatsappNumber = whatsappNumber;
-        this.whatsappMessage = whatsappMessage;
-        if(usernames==null){
-            this.usernames = new ArrayList<>();
-            this.userSuggestions = new HashMap<>();
-        }
-        else{
-            this.userSuggestions = userSuggestions;
-            this.usernames = usernames;
-        }
+        this.timeReminder = timeReminder;
     }
 
     @NonNull
@@ -100,54 +88,31 @@ public class MyDatePickerFragment extends DialogFragment {
                         String dateReminderString = dateString + " " + timeString;
                         Date dateReminder = sdf.parse(dateReminderString);
 
+                        timeReminder.setTimestamp(new Timestamp(dateReminder));
 
-
-//                    adding a whatsapp reminder to report a bug - these are saved in a note.
+//                    adding a whatsapp reminder to report a bug - these reminders are saved in a note.
                         if (noteDocumentReference == null) {
-                            whatsappNumber = "4915905872952";
+                            timeReminder.setWhatsappNumber("4915905872952");
                             noteDocumentReference = FirebaseFirestore.getInstance()
                                     .collection("notes").document("bugReports");
-
                         }
 
                         FirebaseFirestore.getInstance().enableNetwork();
-//                        if the whatsappNumber is an empty string it is a time reminder
-//                        otherwise it is a whatsapp reminder.
-                        if (whatsappNumber.equals("")) {
-                            TimeReminder timeReminder = new TimeReminder(new Timestamp(Objects.requireNonNull(dateReminder)));
-                            timeReminder.setNotifyUsers(getUserIDs(usernames, userSuggestions));
                             noteDocumentReference.collection("Reminders")
                                     .add(timeReminder).addOnCompleteListener(task -> {
-                                               if(task.isSuccessful()){
-                                                   DocumentReference documentReference = task.getResult();
-                                                   assert documentReference != null;
-                                                   MyApp.timeReminders.put(Objects.requireNonNull(task.getResult()).getId(),
-                                                           new TimeReminderData(task.getResult(), timeReminder));
-//                            disabling network here because there is no reminder listener.
-                                                   if(MyApp.userSkippedLogin)
-                                                       FirebaseFirestore.getInstance().disableNetwork();
-                                               }
-
-                                            });
-                        } else {
-                            String whatsappNumberModified = whatsappNumberModified();
-                            WhatsappTimeReminder whatsappTimeReminder = new WhatsappTimeReminder(
-                                    new Timestamp(Objects.requireNonNull(dateReminder)), whatsappNumberModified, whatsappMessage);
-                            whatsappTimeReminder.setNotifyUsers(getUserIDs(usernames, userSuggestions));
-                            noteDocumentReference.collection("Reminders")
-                                    .add(whatsappTimeReminder).addOnCompleteListener(task -> {
-                                if(task.isSuccessful()){
+                                if (task.isSuccessful()) {
                                     DocumentReference documentReference = task.getResult();
                                     assert documentReference != null;
-                                    MyApp.timeReminders.put(Objects.requireNonNull(task.getResult()).getId(),
-                                            new TimeReminderData(task.getResult(), whatsappTimeReminder));
 //                            disabling network here because there is no reminder listener.
-                                    if(MyApp.userSkippedLogin)
+                                    if (MyApp.userSkippedLogin) {
+                                        MyApp.timeReminders.put(Objects.requireNonNull(task.getResult()).getId(),
+                                                new TimeReminderData(task.getResult(), timeReminder, -1));
+                                        // TODO add reminder to alarm manager!
                                         FirebaseFirestore.getInstance().disableNetwork();
+                                    }
                                 }
 
                             });
-                        }
 
                     } catch (ParseException e) {
                         e.printStackTrace();
@@ -157,28 +122,7 @@ public class MyDatePickerFragment extends DialogFragment {
 
     }
 
-    private String whatsappNumberModified() {
-        String whatsappNumberModified;
-        if (whatsappNumber.startsWith("00"))
-            whatsappNumberModified = whatsappNumber.substring(2);
-        else if (whatsappNumber.startsWith("0"))
-            whatsappNumberModified = "49" + whatsappNumber.substring(1);
-        else if (whatsappNumber.startsWith("+"))
-            whatsappNumberModified = whatsappNumber.substring(1);
-        else whatsappNumberModified = whatsappNumber;
-        return whatsappNumberModified;
-    }
 
-    private ArrayList<String> getUserIDs(ArrayList<String> usernames, HashMap<String, CloudUserData> userSuggestions) {
-        ArrayList<String> userIDs;
-        userIDs = new ArrayList<>();
-        for (String s :
-                usernames) {
-            CloudUserData cloudUserData = userSuggestions.get(s);
-            if (cloudUserData != null)
-                userIDs.add(cloudUserData.getCloudUser().getUid());
-        }
-        return userIDs;
-    }
+
 
 }

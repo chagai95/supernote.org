@@ -13,7 +13,7 @@ public class MyService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         int ret = super.onStartCommand(intent, flags, startId);
-        startAppAndCloseMainActivity();
+        //startAppAndCloseMainActivity();
         return ret;
     }
 

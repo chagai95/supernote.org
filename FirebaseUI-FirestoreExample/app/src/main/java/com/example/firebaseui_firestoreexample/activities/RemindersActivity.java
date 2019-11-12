@@ -1,18 +1,17 @@
 package com.example.firebaseui_firestoreexample.activities;
 
+import android.app.ActionBar;
 import android.content.Context;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.Button;
-import android.widget.LinearLayout;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.AlertDialog;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -21,7 +20,7 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.example.firebaseui_firestoreexample.MyApp;
 import com.example.firebaseui_firestoreexample.R;
 import com.example.firebaseui_firestoreexample.activities.adapters.ReminderAdapter;
-import com.example.firebaseui_firestoreexample.firestore_data.OfflineNoteData;
+import com.example.firebaseui_firestoreexample.firestore_data.NoteData;
 import com.example.firebaseui_firestoreexample.firestore_data.ReminderData;
 import com.example.firebaseui_firestoreexample.reminders.LocationReminder;
 import com.example.firebaseui_firestoreexample.reminders.Reminder;
@@ -30,6 +29,7 @@ import com.example.firebaseui_firestoreexample.reminders.UserReminder;
 import com.example.firebaseui_firestoreexample.reminders.WhatsappTimeReminder;
 import com.example.firebaseui_firestoreexample.utils.RecyclerItemClickListener;
 import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.GeoPoint;
 import com.google.firebase.firestore.QuerySnapshot;
 
 import java.util.HashMap;
@@ -46,6 +46,11 @@ public class RemindersActivity extends MyActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_reminders);
+        setTitle("Reminders");
+        ActionBar actionBar = getActionBar();
+        if (actionBar != null) {
+            actionBar.setDisplayHomeAsUpEnabled(true);
+        }
         hideKeyboard();
         loadReminders();
         swipeToRefresh();
@@ -54,10 +59,10 @@ public class RemindersActivity extends MyActivity {
     private void loadReminders() {
         remindersMap = new HashMap<>();
         remindersList = new LinkedList<>();
-        OfflineNoteData offlineNoteData = MyApp.allNotes.get(getIntent().getStringExtra("noteID"));
-        assert offlineNoteData != null;
+        NoteData noteData = MyApp.allNotes.get(getIntent().getStringExtra("noteID"));
+        assert noteData != null;
         db.enableNetwork();
-        offlineNoteData.getDocumentReference().collection("Reminders").get().addOnCompleteListener(task -> {
+        noteData.getDocumentReference().collection("Reminders").get().addOnCompleteListener(task -> {
             if (task.isSuccessful()) {
                 if (MyApp.internetDisabledInternally || MyApp.userSkippedLogin)
                     db.disableNetwork();
@@ -69,9 +74,7 @@ public class RemindersActivity extends MyActivity {
                             new ReminderData(documentSnapshot.getReference(), getReminder(documentSnapshot)));
                 }
                 setUpRecyclerView(); // change this to load after getting the reminders!!
-
             }
-
         });
 
 
@@ -123,6 +126,9 @@ public class RemindersActivity extends MyActivity {
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         switch (item.getItemId()) {
+            case android.R.id.home:
+                finish();
+                return true;
             case R.id.time:
                 MyApp.recyclerViewModeReminder = "time";
                 recreate();
@@ -159,18 +165,21 @@ public class RemindersActivity extends MyActivity {
     private void setUpRecyclerView() {
         for (ReminderData reminderData :
                 remindersMap.values()) {
-            switch (MyApp.recyclerViewModeReminder) {
-                case "time":
-                case "location":
-                case "user":
-                case "whatsapp time":
-                    if (reminderData.getReminder().getType().equals(MyApp.recyclerViewModeReminder))
-                        addReminder(reminderData);
-                    break;
-                default:
+            if ("all".equals(MyApp.recyclerViewModeReminder)) {
+                setTitle("All Reminders");
+                addReminder(reminderData);
+            } else {
+                // make string type first letter capital
+                String str = MyApp.recyclerViewModeReminder;
+                String cap = str.substring(0, 1).toUpperCase() + str.substring(1);
+                setTitle(cap + " Reminders");
+
+                if (reminderData.getReminder().getType().equals(MyApp.recyclerViewModeReminder))
                     addReminder(reminderData);
             }
         }
+        if(remindersMap.values().isEmpty())
+            setTitle("No Reminders");
         ReminderAdapter adapter = new ReminderAdapter(c, remindersList);
         RecyclerView recyclerView = findViewById(R.id.recycler_view_reminders);
         recyclerView.setHasFixedSize(true);
@@ -190,7 +199,6 @@ public class RemindersActivity extends MyActivity {
                 if (direction == ItemTouchHelper.LEFT) {
                     remindersList.remove(viewHolder.getAdapterPosition())
                             .getDocumentReference().delete();
-
                     Toast.makeText(c, "deleted", Toast.LENGTH_SHORT).show();
                 }
                 if (direction == ItemTouchHelper.RIGHT) {
@@ -201,6 +209,7 @@ public class RemindersActivity extends MyActivity {
                                 Toast.makeText(c, "reminder undone", Toast.LENGTH_SHORT).show();
                                 // change the array as well so hopefully it updates in real time.
                                 adapter.notifyDataSetChanged();
+                                recreate();
                             }
                         });
 
@@ -209,6 +218,7 @@ public class RemindersActivity extends MyActivity {
                             if (task.isSuccessful()) {
                                 // change the array as well so hopefully it updates in real time.
                                 Toast.makeText(c, "reminder flagged \"done\"", Toast.LENGTH_SHORT).show();
+                                adapter.notifyDataSetChanged();
                                 recreate();
                             }
                         });
@@ -228,6 +238,15 @@ public class RemindersActivity extends MyActivity {
 
                             @Override
                             public void onLongItemClick(View view, int position) {
+                                Reminder reminder = remindersList.get(position).getReminder();
+                                if(reminder.getType().equals("location")){
+
+
+                                    GeoPoint geoPoint = ((LocationReminder) reminder).getGeoPoint();
+                                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse("geo:" + geoPoint.getLatitude() + "," + geoPoint.getLongitude() + "?q="+ geoPoint.getLatitude() + "," + geoPoint.getLongitude()));
+                                    startActivity(intent);
+                                }
+
 
                             }
                         }));
@@ -236,15 +255,15 @@ public class RemindersActivity extends MyActivity {
     private void addReminder(ReminderData reminderData) {
         if (MyApp.recyclerViewModeReminderShowDone) {
             if (MyApp.recyclerViewModeReminderShowOtherUsers) {
-                if (!reminderData.getReminder().getNotifyUsers().contains(MyApp.userUid))
+                if (reminderData.getReminder().getNotifyUsers().contains(MyApp.userUid))
                     remindersList.add(reminderData);
-            } else if (reminderData.getReminder().getNotifyUsers().contains(MyApp.userUid))
+            } else if (reminderData.getReminder().getUid().equals(MyApp.userUid))
                 remindersList.add(reminderData);
         } else if (!reminderData.getReminder().isDone()) {
             if (MyApp.recyclerViewModeReminderShowOtherUsers) {
-                if (!reminderData.getReminder().getNotifyUsers().contains(MyApp.userUid))
+                if (reminderData.getReminder().getNotifyUsers().contains(MyApp.userUid))
                     remindersList.add(reminderData);
-            } else if (reminderData.getReminder().getNotifyUsers().contains(MyApp.userUid))
+            } else if (reminderData.getReminder().getUid().equals(MyApp.userUid))
                 remindersList.add(reminderData);
         }
     }

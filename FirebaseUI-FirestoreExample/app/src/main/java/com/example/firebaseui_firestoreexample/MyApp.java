@@ -4,6 +4,8 @@ package com.example.firebaseui_firestoreexample;
 import android.Manifest;
 import android.app.AlarmManager;
 import android.app.Application;
+import android.app.Notification;
+import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
@@ -18,7 +20,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.provider.Settings;
 import android.util.Pair;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
@@ -26,17 +27,18 @@ import androidx.core.app.ActivityCompat;
 import com.example.firebaseui_firestoreexample.activities.ShowErrorActivity;
 import com.example.firebaseui_firestoreexample.firestore_data.CloudUserData;
 import com.example.firebaseui_firestoreexample.firestore_data.LocationReminderData;
-import com.example.firebaseui_firestoreexample.firestore_data.OfflineNoteData;
+import com.example.firebaseui_firestoreexample.firestore_data.NoteData;
 import com.example.firebaseui_firestoreexample.firestore_data.ReminderData;
 import com.example.firebaseui_firestoreexample.firestore_data.TimeReminderData;
 import com.example.firebaseui_firestoreexample.firestore_data.UserReminderData;
 import com.example.firebaseui_firestoreexample.receivers.MyBroadcastReceiver;
+import com.example.firebaseui_firestoreexample.receivers.NotificationReceiver;
 import com.example.firebaseui_firestoreexample.reminders.LocationReminder;
 import com.example.firebaseui_firestoreexample.reminders.Reminder;
 import com.example.firebaseui_firestoreexample.reminders.TimeReminder;
 import com.example.firebaseui_firestoreexample.reminders.UserReminder;
 import com.example.firebaseui_firestoreexample.reminders.WhatsappTimeReminder;
-import com.example.firebaseui_firestoreexample.utils.NetworkChangeReceiver;
+import com.example.firebaseui_firestoreexample.receivers.NetworkChangeReceiver;
 import com.example.firebaseui_firestoreexample.utils.NetworkUtil;
 import com.example.firebaseui_firestoreexample.utils.TrafficLight;
 import com.google.firebase.Timestamp;
@@ -55,7 +57,9 @@ import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.QuerySnapshot;
 import com.google.firebase.firestore.Source;
+import com.google.type.DayOfWeek;
 
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
@@ -64,23 +68,33 @@ import java.util.Objects;
 import java.util.UUID;
 
 public class MyApp extends Application {
+
+    //    create all queries for the different modes here and add all of them to the allNotes map
+    public static Query queryNotTrashedNotes;
+    public static Query queryTrashedNotes;
+    public static Query querySharedNotes;
+
+
     public static boolean userSkippedLogin;
     public static CloudUserData myCloudUserData;
     public static String userUid;
+    public static ArrayList<String> offlineUsernamesToBeAddedToFriendsWhenOnline;
+    public static ArrayList<String> offlineUsernamesToBeAddedToFriendsWhenOnlineNonExistingList;
     private static MyApp firstInstance;
     public static boolean updateFromServer;
-    public static String titleOldVersion;// perhaps with an intent?
+    public static String descriptionOldVersion;// perhaps with an intent?
     public static String recyclerViewMode;
     public static String recyclerViewModeReminder;
     public static boolean recyclerViewModeReminderShowDone;
     public static boolean recyclerViewModeReminderShowOtherUsers;
     public static long totalTime;
-    public static HashMap<String, OfflineNoteData> allNotes;
+    public static HashMap<String, NoteData> allNotes;
+    public static HashMap<String, NoteData> emptyNotesForOfflineCreation;
     public static HashMap<String, TimeReminderData> timeReminders;
     public static HashMap<String, LocationReminderData> locationReminders;
     public static HashMap<String, ReminderData> otherUserReminders;
     public static HashMap<String, CloudUserData> friends;
-    public static HashMap<String, CloudUserData> userReminderUsers;
+    public static HashMap<String, CloudUserData> userReminderUsers; // possibly add this to UserReminderData
     private static boolean activityMainVisible;
     private static boolean activityLoginVisible;
     private static boolean activityVisible;
@@ -88,6 +102,8 @@ public class MyApp extends Application {
     private static boolean activityEditNoteVisible;
     private static boolean backUpFailed;
     public static boolean appStarted;
+    private static int alarmIDCounter;
+    private static int notificationIDCounter;
     //    makeText(c, "might not be up to date last updated:", LENGTH_SHORT).show();
     FirebaseFirestore db;
     public static DocumentReference forceStop;
@@ -110,7 +126,9 @@ public class MyApp extends Application {
     }
 
     private static void initialize() {
+        queryNotTrashedNotes = null;
         allNotes = new HashMap<>();
+        emptyNotesForOfflineCreation = new HashMap<>();
         totalTime = 0;
         backUpFailed = false;
         autoInternInternetOffWhenSlow = false;
@@ -122,10 +140,14 @@ public class MyApp extends Application {
         otherUserReminders = new HashMap<>();
         friends = new HashMap<>();
         userReminderUsers = new HashMap<>();
-        recyclerViewMode = "default";
-        recyclerViewModeReminder = "default";
+        recyclerViewMode = "all";
+        recyclerViewModeReminder = "all";
         recyclerViewModeReminderShowDone = false;
         recyclerViewModeReminderShowOtherUsers = false;
+        notificationIDCounter = 1;
+        offlineUsernamesToBeAddedToFriendsWhenOnline = new ArrayList<>();
+        offlineUsernamesToBeAddedToFriendsWhenOnlineNonExistingList = new ArrayList<>();
+        recyclerViewModeReminderShowDone = true;
     }
 
     /*private void startAppOffline() {
@@ -265,20 +287,8 @@ public class MyApp extends Application {
     public static void logout() {
         for (TimeReminderData timeReminderData :
                 timeReminders.values()) {
-            timeReminderData.getDocumentReference().get().addOnCompleteListener(task -> {
-                if (task.isSuccessful()) {
-                    DocumentSnapshot documentSnapshot = task.getResult();
-                    assert documentSnapshot != null;
-                    Map<String, Object> data = documentSnapshot.getData();
-                    assert data != null;
-                    Timestamp timestamp = (Timestamp) data.get("timestamp");
-                    assert timestamp != null;
-                    if (!(boolean) data.get("done") &&
-                            !(boolean) data.get("trash") &&
-                            new Date().before(timestamp.toDate()))
-                        removeReminderFromAlarmManager(documentSnapshot);
-                }
-            });
+            if (timeReminderData.getAlarmID() != -1)
+                removeReminderFromAlarmManager(timeReminderData);
         }
         FirebaseAuth mAuth = FirebaseAuth.getInstance();
         mAuth.signOut();
@@ -417,21 +427,20 @@ public class MyApp extends Application {
                     assert note != null;
                     DocumentReference documentReference = documentSnapshot.getReference();
 
-                    if (MyApp.allNotes.get(documentReference.getId()) == null)
-                        MyApp.allNotes.put(documentReference.getId(), new OfflineNoteData(documentReference));
+                    allNotes.put(documentReference.getId(), new NoteData(documentReference));
 
-                    OfflineNoteData offlineNoteData = MyApp.allNotes.get(documentReference.getId());
-                    assert offlineNoteData != null;
-                    offlineNoteData.setNote(note);
+                    NoteData noteData = MyApp.allNotes.get(documentReference.getId());
+                    assert noteData != null;
+                    noteData.setNote(note);
                     if (note.isKeepOffline()) {
                         ListenerRegistration listenerRegistration = documentReference.addSnapshotListener((documentSnapshotForListener, e) -> {
                             if (e != null) {
                                 System.err.println("Listen failed: " + e);
                             }
                             assert documentSnapshotForListener != null;
-                            offlineNoteData.setNote(documentSnapshotForListener.toObject(Note.class));
+                            noteData.setNote(documentSnapshotForListener.toObject(Note.class));
                         });
-                        offlineNoteData.setListenerRegistration(listenerRegistration);
+                        noteData.setListenerRegistration(listenerRegistration);
                     }
 
                 }
@@ -439,43 +448,64 @@ public class MyApp extends Application {
 
         });
 
-        // add listener!!
+        //queryNotTrashedNotes = firebaseFirestore.collection("notes").whereEqualTo("creator", userUid).whereEqualTo("trash", false);
+        queryTrashedNotes = firebaseFirestore.collection("notes").whereEqualTo("creator", userUid).whereEqualTo("trash", true);
+
         if (!userSkippedLogin) {
-            Query querySharedNotes = firebaseFirestore.collection("notes")
+            querySharedNotes = firebaseFirestore.collection("notes")
                     .whereArrayContains("shared", userUid);
-            querySharedNotes.get().addOnCompleteListener(task -> {
-                if (task.isSuccessful()) {
-                    QuerySnapshot queryDocumentSnapshots = task.getResult();
-                    assert queryDocumentSnapshots != null;
-                    for (DocumentSnapshot documentSnapshot :
-                            queryDocumentSnapshots) {
-                        assert documentSnapshot != null;
-                        Note note = documentSnapshot.toObject(Note.class);
-                        assert note != null;
-                        DocumentReference documentReference = documentSnapshot.getReference();
+            querySharedNotes.addSnapshotListener((queryDocumentSnapshots, e) -> {
 
-                        if (MyApp.allNotes.get(documentReference.getId()) == null)
-                            MyApp.allNotes.put(documentReference.getId(), new OfflineNoteData(documentReference));
-
-                        OfflineNoteData offlineNoteData = MyApp.allNotes.get(documentReference.getId());
-                        assert offlineNoteData != null;
-                        offlineNoteData.setNote(note);
-                        if (note.isKeepOffline()) {
-                            ListenerRegistration listenerRegistration = documentReference.addSnapshotListener((documentSnapshotForListener, e) -> {
-                                if (e != null) {
-                                    System.err.println("Listen failed: " + e);
-                                }
-                                assert documentSnapshotForListener != null;
-                                offlineNoteData.setNote(documentSnapshotForListener.toObject(Note.class));
-                            });
-                            offlineNoteData.setListenerRegistration(listenerRegistration);
-                        }
-
-                    }
+                if (e != null) {
+                    return;
                 }
 
+                assert queryDocumentSnapshots != null;
+                for (DocumentChange dc : queryDocumentSnapshots.getDocumentChanges()) {
+                    QueryDocumentSnapshot queryDocumentSnapshot = dc.getDocument();
+                    Note note = queryDocumentSnapshot.toObject(Note.class);
+                    DocumentReference documentReference = queryDocumentSnapshot.getReference();
+
+                    if (MyApp.allNotes.get(documentReference.getId()) == null)
+                        MyApp.allNotes.put(documentReference.getId(), new NoteData(documentReference));
+
+                    NoteData noteData = MyApp.allNotes.get(documentReference.getId());
+                    assert noteData != null;
+                    switch (dc.getType()) {
+                        case ADDED:
+                        case MODIFIED:
+                            noteData.setNote(note);
+                            break;
+                        case REMOVED:
+                            MyApp.allNotes.remove(documentReference.getId());
+                            break;
+                    }
+                }
             });
         }
+
+
+        Query queryEmptyNotes = firebaseFirestore.collection("notes").whereEqualTo("creator",
+                "empty");
+
+        queryEmptyNotes.get().addOnCompleteListener(task -> {
+            if (task.isSuccessful()) {
+                QuerySnapshot queryDocumentSnapshots = task.getResult();
+                assert queryDocumentSnapshots != null;
+                if (queryDocumentSnapshots.size() < 50)
+                    if (queryDocumentSnapshots.size() < 50)
+                        createEmptyNotes();
+                for (DocumentSnapshot documentSnapshot :
+                        queryDocumentSnapshots) {
+                    assert documentSnapshot != null;
+                    Note note = documentSnapshot.toObject(Note.class);
+                    assert note != null;
+                    DocumentReference documentReference = documentSnapshot.getReference();
+                    MyApp.emptyNotesForOfflineCreation.put(documentReference.getId(), new NoteData(documentReference));
+                }
+            }
+        });
+
 
     }
 
@@ -546,46 +576,79 @@ public class MyApp extends Application {
             Query queryNotifyingReminders = firebaseFirestore.collectionGroup("Reminders").whereArrayContains("notifyUsers",
                     userUid);
 
-            queryNotifyingReminders.addSnapshotListener((queryDocumentSnapshots, e) -> {
-                if (MyApp.internetDisabledInternally)
-                    firebaseFirestore.disableNetwork();
-                if (e != null) {
-                    return;
-                }
-
-                assert queryDocumentSnapshots != null;
-                for (DocumentChange dc : queryDocumentSnapshots.getDocumentChanges()) {
-                    QueryDocumentSnapshot queryDocumentSnapshot = dc.getDocument();
-                    switch (dc.getType()) {
-                        case ADDED:
-                            addReminderAndRegisterListener(queryDocumentSnapshot, firebaseFirestore);
-                            break;
-                        case MODIFIED:
-                            Map<String, Object> data = queryDocumentSnapshot.getData();
-//                                might cause problems - removing an alarm which does not exist.
-                            if ((boolean) data.get("done") || (boolean) data.get("trash")) {
-                                String type = (String) data.get("type");
-                                assert type != null;
-                                if (type.equals("time") || type.equals("whatsapp time"))
-                                    removeReminderFromAlarmManager(queryDocumentSnapshot);
-                                if (type.equals("user")) {
-                                    UserReminderData userReminderData = (UserReminderData) locationReminders.get(queryDocumentSnapshot.getId());
-                                    assert userReminderData != null;
-                                    userReminderData.setUserReminder(queryDocumentSnapshot.toObject(UserReminder.class));
-                                }
-                            }
-                            if (!(boolean) data.get("done") && !(boolean) data.get("trash"))
-                                addReminderAndRegisterListener(queryDocumentSnapshot, firebaseFirestore);
-                            break;
-                        case REMOVED:
-                            removeReminder(dc.getDocument());
-                            break;
+            new Thread(() -> {
+                queryNotifyingReminders.addSnapshotListener((queryDocumentSnapshots, e) -> {
+                    if (MyApp.internetDisabledInternally)
+                        firebaseFirestore.disableNetwork();
+                    if (e != null) {
+                        return;
                     }
-                }
-            });
+
+                    assert queryDocumentSnapshots != null;
+                    for (DocumentChange dc : queryDocumentSnapshots.getDocumentChanges()) {
+                        QueryDocumentSnapshot queryDocumentSnapshot = dc.getDocument();
+                        switch (dc.getType()) {
+                            case ADDED:
+                                addReminderAndRegisterListener(queryDocumentSnapshot, firebaseFirestore);
+                                break;
+                            case MODIFIED:
+                                ReminderData reminderData;
+                                if (MyApp.timeReminders.containsKey(queryDocumentSnapshot.getId())) {
+                                    reminderData = MyApp.timeReminders.get(queryDocumentSnapshot.getId());
+                                    if (reminderData != null) {
+                                        TimeReminder timeReminder = queryDocumentSnapshot.toObject(TimeReminder.class);
+                                        reminderData.getReminder().setDone(timeReminder.isDone());
+                                        reminderData.getReminder().setTrash(timeReminder.isTrash());
+                                    }
+                                }
+                                if (MyApp.locationReminders.containsKey(queryDocumentSnapshot.getId())) {
+                                    reminderData = MyApp.locationReminders.get(queryDocumentSnapshot.getId());
+                                    if (reminderData != null) {
+                                        reminderData.setReminder(queryDocumentSnapshot.toObject(LocationReminder.class));
+                                    }
+                                }
+
+
+                                Map<String, Object> data = queryDocumentSnapshot.getData();
+//                                might cause problems - removing an alarm which does not exist.
+                                if ((boolean) data.get("done") || (boolean) data.get("trash")) {
+                                    String type = (String) data.get("type");
+                                    assert type != null;
+                                    if (type.equals("time") || type.equals("whatsapp time")) {
+                                        TimeReminderData timeReminderData = timeReminders.get(queryDocumentSnapshot.getId());
+                                        assert timeReminderData != null;
+                                        if (timeReminderData.getNotificationID() != 0)
+                                            clearNotification(getContext(), timeReminderData.getNotificationID());
+                                        if (timeReminderData.getAlarmID() != -1)
+                                            removeReminderFromAlarmManager(timeReminderData);
+                                    }
+
+// no idea what I did here. maybe trying to update the location but that is actually already in the users maps listener.
+                                    /*if (type.equals("user")) {
+                                        UserReminderData userReminderData = (UserReminderData) locationReminders.get(queryDocumentSnapshot.getId());
+                                        assert userReminderData != null;
+                                        userReminderData.setUserReminder(queryDocumentSnapshot.toObject(UserReminder.class));
+                                    }*/
+                                }
+                                if (!(boolean) data.get("done") && !(boolean) data.get("trash"))
+                                    addReminderAndRegisterListener(queryDocumentSnapshot, firebaseFirestore);
+                                break;
+                            case REMOVED:
+                                removeReminder(dc.getDocument());
+                                break;
+                        }
+                    }
+                });
+            }).start();
         }
 
 
+    }
+
+    private static void clearNotification(Context context, int notificationID) {
+        NotificationManager notificationManager = (NotificationManager) context
+                .getSystemService(Context.NOTIFICATION_SERVICE);
+        notificationManager.cancel(notificationID);
     }
 
     private static Reminder getReminder(QueryDocumentSnapshot queryDocumentSnapshot) {
@@ -610,19 +673,27 @@ public class MyApp extends Application {
     static void addReminderAndRegisterListener(DocumentSnapshot reminder, FirebaseFirestore firebaseFirestore) {
         DocumentReference reminderDocRef = reminder.getReference();
         String type = (String) Objects.requireNonNull(reminder.getData()).get("type");
+        String reminderId = reminderDocRef.getId();
         assert type != null;
         switch (type) {
             case "time":
                 TimeReminder timeReminder = reminder.toObject(TimeReminder.class);
                 assert timeReminder != null;
-                if (!timeReminder.getTimestamp().toDate().before(new Date()))
-                    addReminderToAlarmManager(reminder);
-                timeReminders.put(reminderDocRef.getId(),
-                        new TimeReminderData(reminderDocRef, timeReminder));
+                TimeReminderData timeReminderData = new TimeReminderData(reminderDocRef, timeReminder, -1);
+                if (!timeReminder.getTimestamp().toDate().before(new Date())) {
+                    addReminderToAlarmManager(timeReminderData);
+                }
+                if (timeReminders.get(reminderId) == null)
+                    timeReminders.put(reminderId, timeReminderData);
+                else
+                    Objects.requireNonNull(timeReminders.get(reminderId)).setTimeReminder(timeReminder);
                 break;
             case "location":
                 LocationReminder locationReminder = reminder.toObject(LocationReminder.class);
-                locationReminders.put(reminderDocRef.getId(), new LocationReminderData(reminderDocRef, locationReminder));
+                if (locationReminders.get(reminderId) == null)
+                    locationReminders.put(reminderDocRef.getId(), new LocationReminderData(reminderDocRef, locationReminder));
+                else
+                    Objects.requireNonNull(locationReminders.get(reminderId)).setLocationReminder(locationReminder);
                 break;
             case "user":
                 UserReminder userReminder = reminder.toObject(UserReminder.class);
@@ -649,38 +720,49 @@ public class MyApp extends Application {
                     GeoPoint geoPoint = cloudUser.getGeoPoint();
                     reminder.getReference().update("geoPoint", geoPoint);
                 });
-                locationReminders.put(reminderDocRef.getId(), new UserReminderData(reminderDocRef, userReminder));
-                break;
-            case "whatsapp time":
-                WhatsappTimeReminder whatsappTimeReminder = reminder.toObject(WhatsappTimeReminder.class);
-                assert whatsappTimeReminder != null;
-                if (!whatsappTimeReminder.getTimestamp().toDate().before(new Date()))
-                    addReminderToAlarmManager(reminder);
-                timeReminders.put(reminderDocRef.getId(),
-                        new TimeReminderData(reminderDocRef, whatsappTimeReminder));
+                if (locationReminders.get(reminderId) == null)
+                    locationReminders.put(reminderDocRef.getId(), new LocationReminderData(reminderDocRef, userReminder));
+                else
+                    Objects.requireNonNull(locationReminders.get(reminderId)).setLocationReminder(userReminder);
                 break;
         }
     }
 
+    public static int createAlarmID() {
+        alarmIDCounter++;
+        return alarmIDCounter;
+    }
+
+    public static int createNotificationID() {
+        notificationIDCounter++;
+        return notificationIDCounter;
+    }
+
+
     static void removeReminder(DocumentSnapshot reminder) {
-        DocumentReference reminderDocRef = reminder.getReference();
         String type = (String) Objects.requireNonNull(reminder.getData()).get("type");
         assert type != null;
         switch (type) {
             case "time":
-            case "whatsapp time":
-                timeReminders.remove(reminderDocRef.getId());
-                removeReminderFromAlarmManager(reminder);
+                TimeReminderData timeReminderData = timeReminders.remove(reminder.getId());
+                assert timeReminderData != null;
+                if (timeReminderData.getNotificationID() != 0)
+                    clearNotification(getContext(), timeReminderData.getNotificationID());
+                if (timeReminderData.getAlarmID() != -1)
+                    removeReminderFromAlarmManager(timeReminderData);
                 break;
             case "location":
             case "user":
-                locationReminders.remove(reminderDocRef.getId());
+                LocationReminderData locationReminderData = locationReminders.remove(reminder.getId());
+                if (locationReminderData != null && locationReminderData.getNotificationID() != 0)
+                    clearNotification(getContext(), locationReminderData.getNotificationID());
                 break;
         }
     }
 
     public static void setLocationListener() {
         LocationManager locationManager = (LocationManager) getContext().getSystemService(LOCATION_SERVICE);
+
 
         LocationListener listener = new LocationListener() {
             @Override
@@ -699,14 +781,26 @@ public class MyApp extends Application {
                             locationLocationReminder.setLatitude(geoPoint.getLatitude());
                             locationLocationReminder.setLongitude(geoPoint.getLongitude());
                             float distanceInMeters = locationLocationReminder.distanceTo(location);
-                            if (locationReminder.getRadius() > (double) distanceInMeters) {
-                                Toast.makeText(getContext(), location.getLongitude() + " " + location.getLatitude(), Toast.LENGTH_SHORT).show();
-                                createNotificationForLocationReminder(locationData.getDocumentReference(), getContext());
-                            }
+                            Calendar calendar = Calendar.getInstance();
+                            String today = MyDayOfWeek.values()[calendar.get(Calendar.DAY_OF_WEEK)].name().toLowerCase();
+                            int hour = calendar.get(Calendar.HOUR_OF_DAY);
+                            if (locationReminder.getNotifyUsers().contains(userUid))
+                                if (locationReminder.getDaysOfWeek().contains(today) && locationReminder.getStartHourOfDay() <= hour
+                                        && locationReminder.getEndHourOfDay() >= hour + 1)
+                                    if (locationReminder.getRadius() > (double) distanceInMeters) {
+                                        if (!locationData.isInRadius()) {
+                                            locationData.setInRadius(true);
+                                            if (locationReminder.isArrive())
+                                                createNotificationForLocationReminder(locationData.getDocumentReference(), getContext());
+                                        }
+                                    } else if (locationData.isInRadius()) {
+                                        locationData.setInRadius(false);
+                                        if (locationReminder.isLeave())
+                                            createNotificationForLocationReminder(locationData.getDocumentReference(), getContext());
+                                    }
                         }
                     }
                 }
-
             }
 
 
@@ -741,70 +835,48 @@ public class MyApp extends Application {
             // for Activity#requestPermissions for more details.
             return;
         }
-        Objects.requireNonNull(locationManager).requestLocationUpdates("gps", 2000, 8, listener);
+        Objects.requireNonNull(locationManager).requestLocationUpdates("gps", 10000, 15, listener);
     }
 
     public static void createNotificationForLocationReminder(DocumentReference reminderDocRef, Context c) {
         CollectionReference coll = reminderDocRef.getParent();
         DocumentReference documentReference = coll.getParent();
         assert documentReference != null;
-        MyBroadcastReceiver.createNotification(c, documentReference, reminderDocRef);
+        MyBroadcastReceiver.createNotification(c, documentReference.getId(), reminderDocRef);
     }
 
-    public static void createNotificationForUserReminder(DocumentReference reminderDocRef, Context c) {
-        CollectionReference coll = reminderDocRef.getParent();
-        DocumentReference documentReference = coll.getParent();
-        assert documentReference != null;
-        MyBroadcastReceiver.createNotification(c, documentReference, reminderDocRef);
-    }
-
-    static void addReminderToAlarmManager(DocumentSnapshot reminder) {
+    static void addReminderToAlarmManager(TimeReminderData timeReminderData) {
         Context c = getContext();
         AlarmManager alarmManager = (AlarmManager) c.getSystemService(Context.ALARM_SERVICE);
         Intent myIntent = new Intent(c, MyBroadcastReceiver.class);
 
-        Pair<Intent, TimeReminder> intentAndTimeReminderForAlarmManager = createIntentAndTimeReminderForAlarmManager(myIntent, reminder);
+        Pair<Intent, TimeReminder> intentAndTimeReminderForAlarmManager = createIntentAndTimeReminderForAlarmManager(myIntent, timeReminderData);
         assert intentAndTimeReminderForAlarmManager != null;
 
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(c, 0, intentAndTimeReminderForAlarmManager.first, 0);
+        timeReminderData.setAlarmID(createAlarmID());
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(c, timeReminderData.getAlarmID(), intentAndTimeReminderForAlarmManager.first, 0);
         Objects.requireNonNull(alarmManager).set(AlarmManager.RTC_WAKEUP, intentAndTimeReminderForAlarmManager.second.getTimestamp().toDate().getTime(), pendingIntent);
-
     }
 
-    static void removeReminderFromAlarmManager(DocumentSnapshot reminder) {
+    static void removeReminderFromAlarmManager(TimeReminderData timeReminderData) {
         Context c = getContext();
         AlarmManager alarmManager = (AlarmManager) c.getSystemService(Context.ALARM_SERVICE);
         Intent myIntent = new Intent(c, MyBroadcastReceiver.class);
 
-        Pair<Intent, TimeReminder> intentAndTimeReminderForAlarmManager = createIntentAndTimeReminderForAlarmManager(myIntent, reminder);
+        Pair<Intent, TimeReminder> intentAndTimeReminderForAlarmManager = createIntentAndTimeReminderForAlarmManager(myIntent, timeReminderData);
         assert intentAndTimeReminderForAlarmManager != null;
 
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(c, 0, intentAndTimeReminderForAlarmManager.first, 0);
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(c, timeReminderData.getAlarmID(), intentAndTimeReminderForAlarmManager.first, 0);
         Objects.requireNonNull(alarmManager).cancel(pendingIntent);
-
     }
 
-    static Pair<Intent, TimeReminder> createIntentAndTimeReminderForAlarmManager(Intent myIntent, DocumentSnapshot reminder) {
-        myIntent.putExtra("reminderID", reminder.getId());
-        Map<String, Object> data = reminder.getData();
-        assert data != null;
-        TimeReminder timeReminder = null;
-        switch ((String) Objects.requireNonNull(data.get("type"))) {
-            case "time":
-                myIntent.setAction("TimeReminder");
-                timeReminder = reminder.toObject(TimeReminder.class);
-                break;
-            case "whatsapp time":
-                myIntent.setAction("WhatsappTimeReminder");
-                timeReminder = reminder.toObject(WhatsappTimeReminder.class);
-                assert timeReminder != null;
-                myIntent.putExtra("whatsappNumber", ((WhatsappTimeReminder) timeReminder).getNumber());
-                myIntent.putExtra("whatsappMessage", ((WhatsappTimeReminder) timeReminder).getMessage());
-                break;
-        }
+    static Pair<Intent, TimeReminder> createIntentAndTimeReminderForAlarmManager(Intent myIntent, TimeReminderData timeReminderData) {
+        myIntent.putExtra("reminderID", timeReminderData.getDocumentReference().getId());
+        TimeReminder timeReminder = timeReminderData.getTimeReminder();
+        myIntent.setAction("reminder");
 
 //        for the noteID!
-        DocumentReference d = reminder.getReference();
+        DocumentReference d = timeReminderData.getDocumentReference();
         CollectionReference coll = d.getParent();
         DocumentReference r = coll.getParent();
         String s = Objects.requireNonNull(r).getId();
@@ -831,6 +903,23 @@ public class MyApp extends Application {
             }
         }
         return uniqueID;
+    }
+
+    public static void createEmptyNotes() {
+        FirebaseFirestore firebaseFirestore = FirebaseFirestore.getInstance();
+        // change to 100.
+        for (int i = 0; i < 20; i++) {
+            Note emptyNote = new Note("", "", null, "empty");
+            firebaseFirestore.collection("notes").add(emptyNote)
+                    .addOnCompleteListener(task -> {
+                        if (task.isSuccessful()) {
+                            DocumentReference documentReference = task.getResult();
+                            assert documentReference != null;
+                            emptyNotesForOfflineCreation.put(documentReference.getId(),
+                                    new NoteData(documentReference));
+                        }
+                    });
+        }
     }
 
     private static void registerNewDevice(String uniqueID) {

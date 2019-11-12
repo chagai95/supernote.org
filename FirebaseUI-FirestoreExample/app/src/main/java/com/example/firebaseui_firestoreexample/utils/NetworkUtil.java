@@ -14,7 +14,7 @@ public class NetworkUtil {
      private static final int TYPE_WIFI = 1;
      private static final int TYPE_MOBILE = 2;
      private static final int TYPE_NOT_CONNECTED = 0;
-     static final int NETWORK_STATUS_NOT_CONNECTED = 0;
+     public static final int NETWORK_STATUS_NOT_CONNECTED = 0;
      private static final int NETWORK_STATUS_WIFI = 1;
      public static final int NETWORK_STATUS_MOBILE = 2;
      private static final int NETWORK_TYPE_WIFI = 30;

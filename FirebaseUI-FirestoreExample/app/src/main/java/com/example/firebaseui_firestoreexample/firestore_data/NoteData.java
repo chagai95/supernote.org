@@ -5,14 +5,17 @@ import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.ListenerRegistration;
 
-public class OfflineNoteData {
+public class NoteData {
 
     private DocumentReference documentReference;
     private ListenerRegistration listenerRegistration;
     private int lastKnownNoteHistoryListSize;
     private Note note;
 
-    public OfflineNoteData(DocumentReference documentReference) {
+    // has or more accurately had a conflict whilst not in the note activity.
+    boolean hasConflict;
+
+    public NoteData(DocumentReference documentReference) {
         this.documentReference = documentReference;
         lastKnownNoteHistoryListSize = -1;
         documentReference.get().addOnCompleteListener(task -> {

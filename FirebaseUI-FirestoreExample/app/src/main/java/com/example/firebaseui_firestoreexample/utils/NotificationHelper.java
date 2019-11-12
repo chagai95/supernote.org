@@ -17,18 +17,24 @@ import android.os.Build;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationCompat.Builder;
 
+import com.example.firebaseui_firestoreexample.MyApp;
 import com.example.firebaseui_firestoreexample.R;
-import com.example.firebaseui_firestoreexample.receivers.MyBroadcastReceiver;
+import com.example.firebaseui_firestoreexample.firestore_data.LocationReminderData;
+import com.example.firebaseui_firestoreexample.firestore_data.ReminderData;
+import com.example.firebaseui_firestoreexample.firestore_data.TimeReminderData;
 import com.example.firebaseui_firestoreexample.receivers.NotificationReceiver;
+import com.example.firebaseui_firestoreexample.reminders.LocationReminder;
 import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.DocumentReference;
-import com.google.firebase.firestore.DocumentSnapshot;
 
 public class NotificationHelper {
 
     private Context mContext;
     private NotificationCompat.Builder mBuilder;
     private NotificationManager mNotificationManager;
+
+    private String reminderID;
+    private String noteID;
 
     public NotificationHelper(Context mContext) {
         this.mContext = mContext.getApplicationContext();
@@ -59,19 +65,31 @@ public class NotificationHelper {
 
         Uri alarmSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
 
-        Intent intent = new Intent(mContext, NotificationReceiver.class);
-        intent.setAction("swiped");
-        intent.putExtra("reminderID",reminderDocumentReference.getId());
+        reminderID = reminderDocumentReference.getId();
         CollectionReference coll = reminderDocumentReference.getParent();
         DocumentReference documentReference = coll.getParent();
-        assert documentReference != null;
-        intent.putExtra("noteID",documentReference.getId());
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(mContext.getApplicationContext(), 0, intent, 0);
+        if (documentReference != null) {
+            noteID = documentReference.getId();
+        }
 
+
+        PendingIntent pendingIntentSwiped = createPendingIntent("swiped");
+
+        String doneButton = mContext.getString(R.string.done);
+        PendingIntent donePendingIntentButton = createPendingIntent("done");
+
+        String snoozeButton = mContext.getString(R.string.snooze);
+        PendingIntent snoozePendingIntentButton = createPendingIntent("snooze");
+
+        String nextTimeButton = mContext.getString(R.string.next_time);
+        PendingIntent nextTimePendingIntentButton = createPendingIntent("next time");
+
+        String whatsappButton = mContext.getString(R.string.sendWhatsapp);
+        PendingIntent sendWhatsappPendingIntentButton = createPendingIntent("send whatsapp");
 
 
         mBuilder = new NotificationCompat.Builder(mContext, "CHANNEL_ID");
-        mBuilder.setSmallIcon(R.mipmap.ic_launcher)
+        Builder builder = mBuilder.setSmallIcon(R.mipmap.ic_launcher)
                 .setContentTitle(title)
                 .setContentText(content)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -79,7 +97,31 @@ public class NotificationHelper {
                 .setContentIntent(notifyIntent)
                 .setAutoCancel(true)
                 .setSound(alarmSound)
-                .setDeleteIntent(pendingIntent); // this gets triggered when we dismiss (swipe away) the notification or click clear all in the notification panel.
+                .setDeleteIntent(pendingIntentSwiped);// this gets triggered when we dismiss (swipe away) the notification or click clear all in the notification panel.
+
+        if (MyApp.timeReminders.containsKey(reminderDocumentReference.getId())) {
+            builder.addAction(R.drawable.ic_save, doneButton, donePendingIntentButton);
+            builder.addAction(R.drawable.ic_save, snoozeButton, snoozePendingIntentButton);
+            TimeReminderData timeReminderData = MyApp.timeReminders.get(reminderID);
+            if (isNetworkAvailable() && timeReminderData != null
+                    && timeReminderData.getTimeReminder().getWhatsappNumber() != null
+                        && !timeReminderData.getTimeReminder().getWhatsappNumber().equals(""))
+                builder.addAction(R.drawable.ic_save, whatsappButton, sendWhatsappPendingIntentButton);
+        }
+        if (MyApp.locationReminders.containsKey(reminderDocumentReference.getId())) {
+            LocationReminderData locationReminderData = MyApp.locationReminders.get(reminderID);
+            if (locationReminderData != null) {
+            LocationReminder locationReminder = locationReminderData.getLocationReminder();
+            builder.addAction(R.drawable.ic_save, doneButton, donePendingIntentButton);
+            builder.addAction(R.drawable.ic_save, nextTimeButton, nextTimePendingIntentButton);
+            if (isNetworkAvailable()
+                    && locationReminder.getWhatsappNumber() != null
+                    && !locationReminder.getWhatsappNumber().equals(""))
+                builder.addAction(R.drawable.ic_save, whatsappButton, sendWhatsappPendingIntentButton);
+            }
+        }
+
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             mBuilder.setLargeIcon(null);
         }
@@ -88,55 +130,14 @@ public class NotificationHelper {
         }
     }
 
-    public void createNotificationForWhatsapp(String title,
-                                              String content,
-                                              String whatsappNumber,
-                                              PendingIntent notifyIntent) {
-
-
-        Uri alarmSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
-
-        Intent intentSwiped = new Intent(mContext, NotificationReceiver.class);
-        intentSwiped.setAction("swiped");//we use the action to check if the notification has been dismissed in MyBroadcastReceiver
-        intentSwiped.putExtra("whatsappMessage",content);
-        intentSwiped.putExtra("whatsappNumber",whatsappNumber);
-        PendingIntent pendingIntentSwiped = PendingIntent.getBroadcast(mContext.getApplicationContext(), 0, intentSwiped, 0);
-
-
-        Intent intentButton = new Intent(mContext, NotificationReceiver.class);
-        String whatsappSendButton;
-        if (isNetworkAvailable()) {
-            whatsappSendButton = mContext.getString(R.string.sendWhatsapp);
-            intentButton.setAction("sendWhatsapp");
-            intentButton.putExtra("whatsappNumber",whatsappNumber);
-            intentButton.putExtra("whatsappMessage",content);
-        } else {
-            whatsappSendButton = mContext.getString(R.string.snoozeWhatsapp);
-            intentButton.setAction("snoozeWhatsapp");
-            intentButton.putExtra("whatsappNumber",whatsappNumber);
-            intentButton.putExtra("whatsappMessage",content);
-        }
-        PendingIntent pendingIntentButton =
-                PendingIntent.getBroadcast(mContext.getApplicationContext(), 0, intentButton, 0);
-
-        mBuilder = new NotificationCompat.Builder(mContext, "CHANNEL_ID");
-        mBuilder.setSmallIcon(R.mipmap.ic_launcher)
-                .setContentTitle(title)
-                .setContentText(content)
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .setDefaults(Notification.DEFAULT_ALL)
-                .setContentIntent(notifyIntent)
-                .setAutoCancel(true)
-                .addAction(R.drawable.ic_save, whatsappSendButton, pendingIntentButton)
-                .setSound(alarmSound)
-                .setDeleteIntent(pendingIntentSwiped); // this gets triggered when we dismiss (swipe away) the notification or click clear all in the notification panel.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            mBuilder.setLargeIcon(null);
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            mBuilder.setChannelId("CHANNEL_ID");
-        }
+    private PendingIntent createPendingIntent(String action) {
+        Intent intent = new Intent(mContext, NotificationReceiver.class);
+        intent.putExtra("reminderID", reminderID);
+        intent.putExtra("noteID", noteID);
+        intent.setAction(action);
+        return PendingIntent.getBroadcast(mContext.getApplicationContext(), MyApp.createAlarmID(), intent, 0);
     }
+
 
     @SuppressWarnings("unused")
     public Builder getBuilder() {

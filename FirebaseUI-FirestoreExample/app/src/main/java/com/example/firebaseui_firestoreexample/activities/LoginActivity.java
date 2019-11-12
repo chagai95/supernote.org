@@ -153,6 +153,8 @@ public class LoginActivity extends MyActivity {
         }
     }
 
+
+
     // added for the traffic light
 
     boolean onCreateCalled;

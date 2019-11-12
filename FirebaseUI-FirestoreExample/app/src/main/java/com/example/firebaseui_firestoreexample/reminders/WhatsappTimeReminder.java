@@ -8,7 +8,7 @@ public class WhatsappTimeReminder extends TimeReminder {
     private String message;
 
     public WhatsappTimeReminder(Timestamp timestamp, String number, String message) {
-        super(timestamp);
+        super();
         setType("whatsapp time");
         this.number = number;
         this.message = message;

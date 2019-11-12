@@ -10,6 +10,7 @@ public class Note {
     private String title;
     private String description;
     private ArrayList<String> history;
+    private ArrayList<String> titleHistory;
     private ArrayList<String> shared;
     private boolean keepOffline;
     private boolean loadToCache;
@@ -28,6 +29,7 @@ public class Note {
         this.created = created;
         this.creator = creator;
         history = new ArrayList<>();
+        titleHistory = new ArrayList<>();
         shared = new ArrayList<>();
         keepOffline = false;
         loadToCache = false;
@@ -46,9 +48,16 @@ public class Note {
         return description;
     }
 
-
     public ArrayList<String> getHistory() {
         return history;
+    }
+
+    public ArrayList<String> getTitleHistory() {
+        return titleHistory;
+    }
+
+    public void setTitleHistory(ArrayList<String> titleHistory) {
+        this.titleHistory = titleHistory;
     }
 
     public Timestamp getCreated() {

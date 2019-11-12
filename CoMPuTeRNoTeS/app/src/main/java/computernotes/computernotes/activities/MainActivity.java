@@ -489,8 +489,6 @@ public class MainActivity extends AppCompatActivity {
                 signout();
                 return true;
             case R.id.offline:
-                switchBetweenOnlineOffline();
-                return true;
             case R.id.online:
                 switchBetweenOnlineOffline();
                 return true;

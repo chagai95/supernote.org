@@ -5,13 +5,14 @@ import com.google.firebase.Timestamp;
 
 public class TimeReminder extends Reminder {
     private Timestamp timestamp;
-    public TimeReminder(Timestamp timestamp) {
+    /*public TimeReminder(Timestamp timestamp) {
         super("time");
         this.timestamp = timestamp;
-    }
+    }*/
 
     @SuppressWarnings("unused")
     public TimeReminder(){
+        super("time");
         // empty constructor needed for firestore
     }
 

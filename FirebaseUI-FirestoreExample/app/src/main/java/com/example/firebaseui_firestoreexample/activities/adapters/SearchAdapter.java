@@ -1,5 +1,6 @@
 package com.example.firebaseui_firestoreexample.activities.adapters;
 
+import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -9,40 +10,45 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.firebaseui_firestoreexample.MyApp;
-import com.example.firebaseui_firestoreexample.Note;
 import com.example.firebaseui_firestoreexample.R;
-import com.firebase.ui.firestore.FirestoreRecyclerAdapter;
-import com.firebase.ui.firestore.FirestoreRecyclerOptions;
+import com.example.firebaseui_firestoreexample.firestore_data.NoteData;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 
+import java.util.List;
 import java.util.Objects;
 
+public class SearchAdapter extends RecyclerView.Adapter<SearchAdapter.SearchHolder> {
+    private SearchAdapter.OnItemClickListener listener;
 
-public class NoteAdapter extends FirestoreRecyclerAdapter<Note, NoteAdapter.NoteHolder> {
+    //this activity we will use to inflate the layout
+    private Context cOtherActivity;
 
-    private OnItemClickListener listener;
+    //we are storing all the Strings in a list
+    private List<NoteData> noteList;
 
-    public NoteAdapter(@NonNull FirestoreRecyclerOptions<Note> options) {
-        super(options);
+    //getting the activity and String list with constructor
+    public SearchAdapter(Context cOtherActivity, List<NoteData> noteList) {
+        this.cOtherActivity = cOtherActivity;
+        this.noteList = noteList;
     }
 
     @Override
-    protected void onBindViewHolder(@NonNull NoteHolder holder, int i, @NonNull Note model) {
-        holder.textViewTitle.setText(model.getTitle());
-        holder.textViewDescription.setText(model.getDescription());
+    public void onBindViewHolder(@NonNull SearchAdapter.SearchHolder holder, int i) {
+        holder.textViewTitle.setText(noteList.get(i).getNote().getTitle());
+        holder.textViewDescription.setText(noteList.get(i).getNote().getDescription());
     }
 
     @NonNull
     @Override
-    public NoteHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+    public SearchAdapter.SearchHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         View v = LayoutInflater.from(parent.getContext()).inflate(R.layout.note_item, parent, false);
 
-        return new NoteHolder(v);
+        return new SearchAdapter.SearchHolder(v);
     }
 
     public void deleteItem(int position) {
-        DocumentReference documentReference = getSnapshots().getSnapshot(position).getReference();
+        DocumentReference documentReference = noteList.get(position).getDocumentReference();
         MyApp.allNotes.remove(documentReference.getId());
         documentReference.collection("Reminders").get().addOnCompleteListener(task -> {
             if (task.isSuccessful()) {
@@ -57,7 +63,7 @@ public class NoteAdapter extends FirestoreRecyclerAdapter<Note, NoteAdapter.Note
     }
 
     public void trashItem(int position) {
-        DocumentReference documentReference = getSnapshots().getSnapshot(position).getReference();
+        DocumentReference documentReference = noteList.get(position).getDocumentReference();
         documentReference.collection("Reminders").get().addOnCompleteListener(task -> {
             if (task.isSuccessful()) {
                 for (DocumentSnapshot documentSnapshot :
@@ -71,7 +77,7 @@ public class NoteAdapter extends FirestoreRecyclerAdapter<Note, NoteAdapter.Note
     }
 
     public void untrashItem(int position) {
-        DocumentReference documentReference = getSnapshots().getSnapshot(position).getReference();
+        DocumentReference documentReference = noteList.get(position).getDocumentReference();
         documentReference.collection("Reminders").get().addOnCompleteListener(task -> {
             if (task.isSuccessful()) {
                 for (DocumentSnapshot documentSnapshot :
@@ -85,11 +91,11 @@ public class NoteAdapter extends FirestoreRecyclerAdapter<Note, NoteAdapter.Note
     }
 
 
-    class NoteHolder extends RecyclerView.ViewHolder {
+    class SearchHolder extends RecyclerView.ViewHolder {
         TextView textViewTitle;
         TextView textViewDescription;
 
-        NoteHolder(@NonNull View itemView) {
+        SearchHolder(@NonNull View itemView) {
             super(itemView);
             textViewTitle = itemView.findViewById(R.id.text_view_title);
             textViewDescription = itemView.findViewById(R.id.text_view_description);
@@ -97,17 +103,22 @@ public class NoteAdapter extends FirestoreRecyclerAdapter<Note, NoteAdapter.Note
             itemView.setOnClickListener(view -> {
                 int position = getAdapterPosition();
                 if (position != RecyclerView.NO_POSITION && listener != null) {
-                    listener.onItemClick(getSnapshots().getSnapshot(position), position);
+                    listener.onItemClick(noteList.get(position).getDocumentReference(), position);
                 }
             });
         }
     }
 
-    public interface OnItemClickListener {
-        void onItemClick(DocumentSnapshot documentSnapshot, int position);
+    @Override
+    public int getItemCount() {
+        return noteList.size();
     }
 
-    public void setOnItemClickListener(OnItemClickListener listener) {
+    public interface OnItemClickListener {
+        void onItemClick(DocumentReference documentReference, int position);
+    }
+
+    public void setOnItemClickListener(SearchAdapter.OnItemClickListener listener) {
         this.listener = listener;
     }
 }

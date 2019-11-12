@@ -1,7 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<menu xmlns:android="http://schemas.android.com/apk/res/android">
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
   <!--  <item android:id="@+id/speed_test"
         android:title="speed_test"/>-->
+  <item
+      android:id="@+id/action_search_all_notes"
+      android:title="search all notes"
+      app:showAsAction="always"
+      app:actionViewClass="androidx.appcompat.widget.SearchView" />
     <item android:id="@+id/app_intern_internet_toggle"
         android:title="switch intern internet state"/>
     <item android:id="@+id/login"
@@ -14,6 +20,8 @@
         android:title="shared"/>
     <item android:id="@+id/allNotes"
         android:title="allNotes"/>
+    <item android:id="@+id/missed_reminders"
+        android:title="missed reminders"/>
     <item android:id="@+id/settings"
         android:title="settings"/>
     <item android:id="@+id/report_bug"

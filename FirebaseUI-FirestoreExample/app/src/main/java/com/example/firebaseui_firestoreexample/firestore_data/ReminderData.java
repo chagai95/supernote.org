@@ -6,6 +6,8 @@ import com.google.firebase.firestore.DocumentReference;
 public class ReminderData {
     private DocumentReference documentReference;
     private Reminder reminder;
+    private int notificationID;
+
 
     public ReminderData(DocumentReference documentReference, Reminder reminder) {
         this.documentReference = documentReference;
@@ -26,5 +28,13 @@ public class ReminderData {
 
     public void setReminder(Reminder reminder) {
         this.reminder = reminder;
+    }
+
+    public int getNotificationID() {
+        return notificationID;
+    }
+
+    public void setNotificationID(int notificationID) {
+        this.notificationID = notificationID;
     }
 }

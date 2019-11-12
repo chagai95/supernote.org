@@ -8,9 +8,13 @@ public abstract class Reminder {
     private String type;
     private boolean done;
     private boolean trash;
+    private String preview;
+    private String whatsappMessage;
+    private String whatsappNumber;
 //    refactor to "creator" including the index and all other uses
     private String uid;
     private ArrayList<String> notifyUsers;
+    private int amountOfRepeats;
 
     Reminder(String type) {
         this.type = type;
@@ -19,6 +23,7 @@ public abstract class Reminder {
             notifyUsers = new ArrayList<>();
             notifyUsers.add(uid);
         }
+        amountOfRepeats = 1;
     }
 
     @SuppressWarnings("unused")
@@ -64,5 +69,41 @@ public abstract class Reminder {
 
     public void setNotifyUsers(ArrayList<String> notifyUsers) {
         this.notifyUsers = notifyUsers;
+    }
+
+    public String getPreview() {
+        return preview;
+    }
+
+    public void setPreview(String preview) {
+        this.preview = preview;
+    }
+
+    public String getWhatsappMessage() {
+        return whatsappMessage;
+    }
+
+    public void setWhatsappMessage(String whatsappMessage) {
+        this.whatsappMessage = whatsappMessage;
+    }
+
+    public String getWhatsappNumber() {
+        return whatsappNumber;
+    }
+
+    public void setWhatsappNumber(String whatsappNumber) {
+        this.whatsappNumber = whatsappNumber;
+    }
+
+    public int getAmountOfRepeats() {
+        return amountOfRepeats;
+    }
+
+    public void setAmountOfRepeats(int amountOfRepeats) {
+        this.amountOfRepeats = amountOfRepeats;
+    }
+
+    public void decrementAmountOfRepeats(){
+        amountOfRepeats--;
     }
 }

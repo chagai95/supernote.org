@@ -3,10 +3,8 @@ package com.example.firebaseui_firestoreexample.activities;
 import android.content.Context;
 import android.os.Bundle;
 import android.view.View;
-import android.widget.TextView;
 
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.AlertDialog;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -15,16 +13,12 @@ import com.example.firebaseui_firestoreexample.Note;
 import com.example.firebaseui_firestoreexample.R;
 import com.example.firebaseui_firestoreexample.activities.adapters.TitleHistoryAdapter;
 import com.example.firebaseui_firestoreexample.MyApp;
-import com.example.firebaseui_firestoreexample.firestore_data.OfflineNoteData;
+import com.example.firebaseui_firestoreexample.firestore_data.NoteData;
 import com.example.firebaseui_firestoreexample.utils.RecyclerItemClickListener;
 import com.google.firebase.firestore.DocumentReference;
-import com.google.firebase.firestore.DocumentSnapshot;
-import com.google.firebase.firestore.Source;
 
 import java.util.ArrayList;
-import java.util.Objects;
 
-import static android.widget.Toast.LENGTH_SHORT;
 import static android.widget.Toast.makeText;
 
 public class TitleHistoryActivity extends MyActivity {
@@ -39,17 +33,17 @@ public class TitleHistoryActivity extends MyActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_title_history);
-
+        setTitle(" Title Note History");
         noteHistoryList = new ArrayList<>();
 
-        OfflineNoteData offlineNoteData = MyApp.allNotes.get(getIntent().getStringExtra("noteID"));
-        assert offlineNoteData != null;
-        documentRef = offlineNoteData.getDocumentReference();
+        NoteData noteData = MyApp.allNotes.get(getIntent().getStringExtra("noteID"));
+        assert noteData != null;
+        documentRef = noteData.getDocumentReference();
 
         documentRef.get().addOnSuccessListener(documentSnapshot -> {
             Note note = documentSnapshot.toObject(Note.class);
             if (note != null) {
-                noteHistoryList = note.getHistory();
+                noteHistoryList = note.getTitleHistory();
                 setUpRecyclerView();
             }
         });
@@ -60,7 +54,7 @@ public class TitleHistoryActivity extends MyActivity {
     private void setUpRecyclerView() {
 
         TitleHistoryAdapter adapter = new TitleHistoryAdapter(this, noteHistoryList);
-        RecyclerView recyclerView = findViewById(R.id.recycler_view_note_history);
+        RecyclerView recyclerView = findViewById(R.id.recycler_view_note_title_history);
         recyclerView.setHasFixedSize(true);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         recyclerView.setAdapter(adapter);
@@ -87,51 +81,10 @@ public class TitleHistoryActivity extends MyActivity {
 
                     @Override
                     public void onLongItemClick(View view, int position) {
-                        if (isNetworkAvailable()) {
-                            documentRef.get(Source.SERVER).addOnCompleteListener(task -> {
-                                if (task.isSuccessful()) {
-                                    DocumentSnapshot documentSnapshot = task.getResult();
-                                    Note noteServer = Objects.requireNonNull(documentSnapshot).toObject(Note.class);
-                                    if (Objects.requireNonNull(documentSnapshot).exists()) {
-                                        MyApp.titleOldVersion = noteHistoryList.get(position);
-                                        if (!getIntent().getStringExtra("title").equals(Objects.requireNonNull(Objects.requireNonNull(noteServer).getTitle()))) {
-                                            chooseBetweenServerDataAndLocalData((String) Objects.requireNonNull(documentSnapshot.getData()).get("title"));
-                                        } else finish();
-                                    }
-                                } else
-                                    makeText(c, "didn't get data from server trying again!", LENGTH_SHORT).show();
-                            });
-
-                        } else{
-                            MyApp.titleOldVersion = noteHistoryList.get(position);
-                            finish();
-                        }
                     }
                 })
         );
 
 
     }
-
-    private void chooseBetweenServerDataAndLocalData(String serverData) {
-        AlertDialog.Builder alert = new AlertDialog.Builder(c);
-        alert.setTitle("chooseBetweenServerDataAndLocalData");
-        alert.setMessage("Server data: " + serverData + "\n" + "Local data: " + MyApp.titleOldVersion);
-// Create TextView
-        final TextView input = new TextView(c);
-        alert.setView(input);
-
-        alert.setPositiveButton("changed Server data", (dialog, whichButton) -> {
-            MyApp.titleOldVersion = null;
-            finish();
-        });
-
-        alert.setNegativeButton("older version", (dialog, whichButton) -> {
-                    documentRef.update("title", MyApp.titleOldVersion);
-                    finish();
-                }
-        );
-        alert.show();
-    }
-
 }

@@ -49,7 +49,7 @@ public class ReminderAdapter extends RecyclerView.Adapter<ReminderAdapter.Remind
     public void onBindViewHolder(@NonNull ReminderHolder holder, int position) {
         switch (MyApp.recyclerViewModeReminder) {
             case "time":
-                holder.reminderItemTitle.setText(((TimeReminder) remindersList.get(position).getReminder()).getTimestamp().toString());
+                holder.reminderItemTitle.setText(((TimeReminder) remindersList.get(position).getReminder()).getTimestamp().toDate().toString());
                 if (MyApp.recyclerViewModeReminderShowDone && remindersList.get(position).getReminder().isDone())
                     holder.reminderItemDescription.setText("flagged \"done\"");
                 else if (((TimeReminder) remindersList.get(position).getReminder()).getTimestamp().toDate().before(new Date()))
@@ -81,7 +81,7 @@ public class ReminderAdapter extends RecyclerView.Adapter<ReminderAdapter.Remind
                     switch (remindersList.get(position).getReminder().getType()) {
                         case "time":
                         case "whatsapp time":
-                            holder.reminderItemDescription.setText(((TimeReminder) remindersList.get(position).getReminder()).getTimestamp().toString());
+                            holder.reminderItemDescription.setText(((TimeReminder) remindersList.get(position).getReminder()).getTimestamp().toDate().toString());
                             break;
                         case "location":
                             holder.reminderItemDescription.setText(((LocationReminder) remindersList.get(position).getReminder()).getGeoPoint().toString());

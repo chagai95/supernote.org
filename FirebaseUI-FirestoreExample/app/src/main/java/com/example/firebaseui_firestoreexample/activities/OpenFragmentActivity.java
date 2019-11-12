@@ -10,19 +10,20 @@ import android.os.Bundle;
 
 
 import com.example.firebaseui_firestoreexample.receivers.MyBroadcastReceiver;
+import com.example.firebaseui_firestoreexample.reminders.Reminder;
+import com.example.firebaseui_firestoreexample.reminders.TimeReminder;
 import com.example.firebaseui_firestoreexample.utils.MyDatePickerFragment;
 import com.example.firebaseui_firestoreexample.R;
 
 import java.util.Date;
 import java.util.Objects;
 
-import static com.example.firebaseui_firestoreexample.receivers.MyBroadcastReceiver.REPORT_BUG_WHATSAPP_REMINDER;
-import static com.example.firebaseui_firestoreexample.receivers.MyBroadcastReceiver.WHATSAPP_TIME_REMINDER;
 
-public class WhatsappActivity extends MyActivity {
+public class OpenFragmentActivity extends MyActivity {
 
     String whatsappMessage;
     String whatsappNumber;
+    private String reminderPreview;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -32,12 +33,10 @@ public class WhatsappActivity extends MyActivity {
         whatsappNumber = getIntent().getStringExtra("whatsappNumber");
         Intent it = new Intent(Intent.ACTION_CLOSE_SYSTEM_DIALOGS);
         sendBroadcast(it);
-        ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE)).cancel(REPORT_BUG_WHATSAPP_REMINDER);
-        ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE)).cancel(WHATSAPP_TIME_REMINDER);
         if (getIntent().getAction() != null)
             switch (getIntent().getAction()) {
-                case "snoozeWhatsapp":
-                    snoozeWhatsapp();
+                case "snooze":
+                    snooze();
                     break;
                 case "swiped":
                     swiped();
@@ -45,6 +44,12 @@ public class WhatsappActivity extends MyActivity {
                 default:
                     sendWhatsapp();
             }
+    }
+
+    private void addPreviewAndWhatsapp(Reminder reminder) {
+        reminder.setPreview(reminderPreview);
+        reminder.setWhatsappMessage(whatsappMessage);
+        reminder.setWhatsappNumber(whatsappNumber);
     }
 
     private void swiped() {
@@ -61,9 +66,11 @@ public class WhatsappActivity extends MyActivity {
         finish();
     }
 
-    private void snoozeWhatsapp() {
+    private void snooze() {
+        TimeReminder timeReminder = new TimeReminder();
+        addPreviewAndWhatsapp(timeReminder);
         new MyDatePickerFragment(
-                null, this, "", whatsappMessage, null, null)
+                null, this, timeReminder)
                 .show(getSupportFragmentManager(), "date picker");
     }
 
@@ -76,7 +83,7 @@ public class WhatsappActivity extends MyActivity {
             Uri uriUrl = Uri.parse(link);
             Intent launchBrowser = new Intent(Intent.ACTION_VIEW, uriUrl);
             startActivity(launchBrowser);
-        } else snoozeWhatsapp();
+        } else snooze();
     }
 
     @Override

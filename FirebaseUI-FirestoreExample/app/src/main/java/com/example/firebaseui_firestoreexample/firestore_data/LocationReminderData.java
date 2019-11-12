@@ -6,11 +6,13 @@ import com.google.firebase.firestore.DocumentReference;
 public class LocationReminderData extends ReminderData{
     private DocumentReference documentReference;
     private LocationReminder locationReminder;
+    private boolean inRadius;
 
     public LocationReminderData(DocumentReference documentReference, LocationReminder locationReminder) {
         super(documentReference,locationReminder);
         this.documentReference = documentReference;
         this.locationReminder = locationReminder;
+        inRadius = false;
     }
 
     public DocumentReference getDocumentReference() {
@@ -27,5 +29,13 @@ public class LocationReminderData extends ReminderData{
 
     public void setLocationReminder(LocationReminder locationReminder) {
         this.locationReminder = locationReminder;
+    }
+
+    public boolean isInRadius() {
+        return inRadius;
+    }
+
+    public void setInRadius(boolean inRadius) {
+        this.inRadius = inRadius;
     }
 }

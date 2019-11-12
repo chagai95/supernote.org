@@ -1,6 +1,7 @@
 package com.example.firebaseui_firestoreexample.activities;
 
 import android.annotation.SuppressLint;
+import android.app.ActionBar;
 import android.content.Intent;
 import android.content.res.Resources;
 import android.graphics.Color;
@@ -46,7 +47,10 @@ public class SettingsActivity extends MyActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_settings);
-
+        ActionBar actionBar = getActionBar();
+        if (actionBar != null) {
+            actionBar.setDisplayHomeAsUpEnabled(true);
+        }
         setTitle("Settings");
 
         // added for the traffic light
@@ -218,7 +222,7 @@ public class SettingsActivity extends MyActivity {
             addFriendButton.setText("add username offline");
         }
         addFriendButton.setOnClickListener(v -> {
-            // has to be from server so we don't add invalid usernames??
+            // has to be from server so we don't add invalid usernames.
             db.collection("users").whereEqualTo("username", addFriends.getText().toString().toLowerCase()).get(Source.SERVER).addOnCompleteListener(task -> {
                 if (task.isSuccessful()) {
                     QuerySnapshot result = task.getResult();
@@ -232,15 +236,21 @@ public class SettingsActivity extends MyActivity {
                         assert cloudUser != null;
                         MyApp.myCloudUserData.getDocumentReference().update(
                                 "friends", FieldValue.arrayUnion(cloudUser.getUid()))
-                                .addOnSuccessListener(aVoid -> Toast.makeText(SettingsActivity.this, cloudUser.getUsername() + " added", Toast.LENGTH_LONG).show());
+                                .addOnSuccessListener(aVoid -> {
+                                            MyApp.friends.put(cloudUser.getUid(), new CloudUserData(cloudUser, documentSnapshot.getReference()));
+                                            Toast.makeText(SettingsActivity.this, cloudUser.getUsername() + " added", Toast.LENGTH_LONG).show();
+                                            addFriends.setText("");
+                                        }
+                                );
                     } else
                         Toast.makeText(SettingsActivity.this, addFriends.getText().toString() + " does not exist", Toast.LENGTH_LONG).show();
 
 
                 } else {
+                    // make a list of usernames and add them as soon as there is internet then delete them from the list.
+                    MyApp.offlineUsernamesToBeAddedToFriendsWhenOnline.add(addFriends.getText().toString().toLowerCase());
                     Toast.makeText(this, "username " + addFriends.getText().toString().toLowerCase() + " will be added when internet is available", Toast.LENGTH_SHORT).show();
                     addFriends.setText("");
-                    // make a list of usernames and add them as soon as there is internet then delete them from the list.
                 }
             });
         });

@@ -40,6 +40,7 @@ public class FriendsActivity extends MyActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_friends);
+        setTitle("Friends");
         initializeFriendsList();
         swipeToRefresh();
         setUpRecyclerView();
