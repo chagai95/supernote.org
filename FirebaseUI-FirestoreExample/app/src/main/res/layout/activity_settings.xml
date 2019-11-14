@@ -10,30 +10,29 @@
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
-        <TextView
-            android:layout_width="match_parent"
+        <CheckBox
+            android:id="@+id/turn_off_internet_automatically_when_e_connection_shows"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
             android:text="@string/turn_off_internet_automatically_when_e_connection_shows" />
 
-        <ToggleButton
-            android:id="@+id/simpleToggleButton"
-            android:layout_width="match_parent"
+
+        <CheckBox
+            android:id="@+id/turn_off_internet_automatically_when_app_started"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:checked="false"
-            android:textOff="@string/enable"
-            android:textOn="@string/disable" /> <!--text to be displayed whenever toggle button is checked-->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
             android:text="@string/turn_off_internet_automatically_when_app_started" />
 
-        <ToggleButton
-            android:id="@+id/simpleToggleButton2"
-            android:layout_width="match_parent"
+        <CheckBox
+            android:id="@+id/swipe_left_to_permanently_delete"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:checked="false"
-            android:textOff="@string/enable"
-            android:textOn="@string/disable" /> <!--text to be displayed whenever toggle button is checked-->
+            android:layout_marginTop="8dp"
+            android:text="@string/swipe_left_to_permanently_delete" />
+
+
 
         <TextView
             android:id="@+id/username_text_explaining_what_to_do"

@@ -13,10 +13,10 @@ import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.widget.ToggleButton;
 
 import com.example.firebaseui_firestoreexample.CloudUser;
 import com.example.firebaseui_firestoreexample.R;
@@ -60,6 +60,8 @@ public class SettingsActivity extends MyActivity {
 
         startAppOffline();
 
+        swipeRightToPermanentlyDelete();
+
         if (!MyApp.userSkippedLogin) {
 
             username();
@@ -70,6 +72,7 @@ public class SettingsActivity extends MyActivity {
         } else
             hideCloudFunctionalities();
     }
+
 
     private void hideCloudFunctionalities() {
         Button showFriendsButton = findViewById(R.id.showFriends);
@@ -168,22 +171,23 @@ public class SettingsActivity extends MyActivity {
     private DocumentReference startAppOfflineDocumentRef;
 
     private void startAppOffline() {
-        ToggleButton toggleButton2 = findViewById(R.id.simpleToggleButton2);
+        CheckBox checkBox = findViewById(R.id.turn_off_internet_automatically_when_app_started);
         startAppOfflineDocumentRef = db.collection("utils").document("startAppOffline");
         startAppOfflineDocumentRef.get().addOnCompleteListener(task -> {
             if (task.isSuccessful()) {
                 startAppOffline = (boolean) Objects.requireNonNull(Objects.requireNonNull(task.getResult()).getData()).get("startAppOffline");
-                toggleButton2.setChecked(startAppOffline);
-                toggleButton2.setOnClickListener(view -> startAppOfflineDocumentRef.update("startAppOffline", !startAppOffline));
+                checkBox.setChecked(startAppOffline);
+                checkBox.setOnClickListener(view -> startAppOfflineDocumentRef.update("startAppOffline", !startAppOffline));
 
             }
         });
+
     }
 
     private void autoInternInternetOffWhenSlow() {
-        ToggleButton toggleButton = findViewById(R.id.simpleToggleButton);
-        toggleButton.setChecked(MyApp.autoInternInternetOffWhenSlow);
-        toggleButton.setOnClickListener(view -> {
+        CheckBox checkBox = findViewById(R.id.turn_off_internet_automatically_when_e_connection_shows);
+        checkBox.setChecked(MyApp.autoInternInternetOffWhenSlow);
+        checkBox.setOnClickListener(v -> {
             MyApp.autoInternInternetOffWhenSlow = !MyApp.autoInternInternetOffWhenSlow;
             MyApp.currentTrafficLightState = TrafficLight.UNKNOWN;
             int status = NetworkUtil.getConnectivityStatusString(this);
@@ -191,6 +195,13 @@ public class SettingsActivity extends MyActivity {
                 if (MyApp.autoInternInternetOffWhenSlow) MyApp.internetDisabledInternally = true;
         });
     }
+
+    private void swipeRightToPermanentlyDelete() {
+        CheckBox checkBox = findViewById(R.id.swipe_left_to_permanently_delete);
+        checkBox.setChecked(MyApp.swipeLeftToPermanentlyDelete);
+        checkBox.setOnClickListener(v -> MyApp.swipeLeftToPermanentlyDelete = !MyApp.swipeLeftToPermanentlyDelete);
+    }
+
 
     private ArrayList<String> usernameSuggestions;
 

@@ -56,7 +56,7 @@ public class NoteAdapter extends FirestoreRecyclerAdapter<Note, NoteAdapter.Note
         documentReference.delete();
     }
 
-    public void trashItem(int position) {
+    public DocumentReference trashItem(int position) {
         DocumentReference documentReference = getSnapshots().getSnapshot(position).getReference();
         documentReference.collection("Reminders").get().addOnCompleteListener(task -> {
             if (task.isSuccessful()) {
@@ -68,6 +68,7 @@ public class NoteAdapter extends FirestoreRecyclerAdapter<Note, NoteAdapter.Note
         });
 
         documentReference.update("trash", true);
+        return documentReference;
     }
 
     public void untrashItem(int position) {

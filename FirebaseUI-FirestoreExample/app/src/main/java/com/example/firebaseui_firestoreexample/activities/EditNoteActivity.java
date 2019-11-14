@@ -163,7 +163,6 @@ public class EditNoteActivity extends MyActivity {
             editTextDescription.requestFocus();
             InputMethodManager inputMethodManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
             inputMethodManager.toggleSoftInput(InputMethodManager.SHOW_FORCED, 0);
-            textWatchers();
 
             if (isNetworkAvailable() && !internetDisabledInternally)
                 notesCollRef.add(new Note("", "", new Timestamp(new Date()), userUid))
@@ -182,6 +181,7 @@ public class EditNoteActivity extends MyActivity {
 
                                 if (!isNetworkAvailable() || MyApp.internetDisabledInternally)
                                     setNoteWithoutConnection();
+                                textWatchers();
                             }
                         });
             else {

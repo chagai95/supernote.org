@@ -4,7 +4,6 @@ package com.example.firebaseui_firestoreexample;
 import android.Manifest;
 import android.app.AlarmManager;
 import android.app.Application;
-import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
@@ -31,9 +30,7 @@ import com.example.firebaseui_firestoreexample.firestore_data.LocationReminderDa
 import com.example.firebaseui_firestoreexample.firestore_data.NoteData;
 import com.example.firebaseui_firestoreexample.firestore_data.ReminderData;
 import com.example.firebaseui_firestoreexample.firestore_data.TimeReminderData;
-import com.example.firebaseui_firestoreexample.firestore_data.UserReminderData;
 import com.example.firebaseui_firestoreexample.receivers.MyBroadcastReceiver;
-import com.example.firebaseui_firestoreexample.receivers.NotificationReceiver;
 import com.example.firebaseui_firestoreexample.reminders.LocationReminder;
 import com.example.firebaseui_firestoreexample.reminders.Reminder;
 import com.example.firebaseui_firestoreexample.reminders.TimeReminder;
@@ -58,7 +55,6 @@ import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.QuerySnapshot;
 import com.google.firebase.firestore.Source;
-import com.google.type.DayOfWeek;
 
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -110,6 +106,7 @@ public class MyApp extends Application {
     public static DocumentReference forceStop;
     public static boolean internetDisabledInternally;
     public static boolean autoInternInternetOffWhenSlow;
+    public static boolean swipeLeftToPermanentlyDelete;
     public static boolean showDialogWhenInternetSlow;
     public static TrafficLight currentTrafficLightState;
 
@@ -133,6 +130,7 @@ public class MyApp extends Application {
         totalTime = 0;
         backUpFailed = false;
         autoInternInternetOffWhenSlow = false;
+        swipeLeftToPermanentlyDelete = false;
         internetDisabledInternally = false;
         appStarted = false;
         showDialogWhenInternetSlow = true;

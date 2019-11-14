@@ -28,6 +28,7 @@ import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.widget.SearchView;
 import androidx.appcompat.widget.Toolbar;
+import androidx.coordinatorlayout.widget.CoordinatorLayout;
 import androidx.core.app.ActivityCompat;
 import androidx.fragment.app.DialogFragment;
 import androidx.recyclerview.widget.ItemTouchHelper;
@@ -52,10 +53,12 @@ import com.example.firebaseui_firestoreexample.utils.TrafficLight;
 import com.firebase.ui.auth.AuthUI;
 import com.firebase.ui.firestore.FirestoreRecyclerOptions;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.android.material.snackbar.Snackbar;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.Query;
 
 import java.util.ArrayList;
@@ -75,6 +78,7 @@ public class MainActivity extends MyActivity {
 //    private SensorService mSensorService;
 
     SearchView searchView;
+    CoordinatorLayout coordinatorLayout;
 
     RecyclerView recyclerView;
     private NoteAdapter adapter;
@@ -101,6 +105,8 @@ public class MainActivity extends MyActivity {
 
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        coordinatorLayout = findViewById(R.id.coordinatorLayoutMainActivity);
 
 
         FirebaseAuth mAuth = FirebaseAuth.getInstance();
@@ -429,19 +435,7 @@ public class MainActivity extends MyActivity {
 
             @Override
             public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
-                if (direction == ItemTouchHelper.RIGHT) {
-                    if (MyApp.recyclerViewMode.equals("trash")) {
-                        Toast.makeText(c, "note restored from trash", Toast.LENGTH_SHORT).show();
-                        adapter.untrashItem(viewHolder.getAdapterPosition());
-                    } else {
-                        Toast.makeText(c, "note trashed", Toast.LENGTH_SHORT).show();
-                        adapter.trashItem(viewHolder.getAdapterPosition());
-                    }
-                }
-                if (direction == ItemTouchHelper.LEFT) {
-                    adapter.deleteItem(viewHolder.getAdapterPosition());
-                    Toast.makeText(c, "deleted", Toast.LENGTH_SHORT).show();
-                }
+                setSwiping(viewHolder, direction);
             }
         }).attachToRecyclerView(recyclerView);
 
@@ -452,6 +446,51 @@ public class MainActivity extends MyActivity {
             MainActivity.this.startActivity(intent);
 
         });
+    }
+
+    private void setSwiping(RecyclerView.ViewHolder viewHolder, int direction) {
+        if (direction == ItemTouchHelper.RIGHT) {
+            if (MyApp.recyclerViewMode.equals("trash")) {
+                Toast.makeText(c, "note restored from trash", Toast.LENGTH_SHORT).show();
+                adapter.untrashItem(viewHolder.getAdapterPosition());
+            } else {
+                createUndoSnackbar(adapter.trashItem(viewHolder.getAdapterPosition()));
+            }
+        }
+        if (direction == ItemTouchHelper.LEFT) {
+            if (swipeLeftToPermanentlyDelete) {
+                adapter.deleteItem(viewHolder.getAdapterPosition());
+                Toast.makeText(c, "deleted", Toast.LENGTH_SHORT).show();
+            } else if (MyApp.recyclerViewMode.equals("trash")) {
+                Toast.makeText(c, "note restored from trash", Toast.LENGTH_SHORT).show();
+                adapter.untrashItem(viewHolder.getAdapterPosition());
+            } else {
+                createUndoSnackbar(adapter.trashItem(viewHolder.getAdapterPosition()));
+            }
+        }
+    }
+
+    private void createUndoSnackbar(DocumentReference documentReference) {
+        Snackbar snackbar = Snackbar
+                .make(coordinatorLayout, "Note is trashed", Snackbar.LENGTH_LONG)
+                .setAction("UNDO", view -> {
+                    undoTrashing(documentReference);
+                    Snackbar snackbar1 = Snackbar.make(coordinatorLayout, "Note is restored!", Snackbar.LENGTH_SHORT);
+                    snackbar1.show();
+                });
+        snackbar.show();
+    }
+
+    private void undoTrashing(DocumentReference documentReference) {
+        documentReference.collection("Reminders").get().addOnCompleteListener(task -> {
+            if (task.isSuccessful()) {
+                for (DocumentSnapshot documentSnapshot :
+                        Objects.requireNonNull(task.getResult()).getDocuments()) {
+                    documentSnapshot.getReference().update("trash", false);
+                }
+            }
+        });
+        documentReference.update("trash", false);
     }
 
     @RequiresApi(api = Build.VERSION_CODES.N)
@@ -482,9 +521,9 @@ public class MainActivity extends MyActivity {
         if (searchText.equals("missed reminders")) {
             noteList.clear();
             for (TimeReminderData timeReminderData :
-                timeReminders.values()) {
-                if(timeReminderData.getTimeReminder().getTimestamp().toDate().before(new Date())
-                    && !timeReminderData.getTimeReminder().isDone()) {
+                    timeReminders.values()) {
+                if (timeReminderData.getTimeReminder().getTimestamp().toDate().before(new Date())
+                        && !timeReminderData.getTimeReminder().isDone()) {
                     CollectionReference coll = timeReminderData.getDocumentReference().getParent();
                     DocumentReference documentReferenceNote = coll.getParent();
                     assert documentReferenceNote != null;
@@ -515,19 +554,7 @@ public class MainActivity extends MyActivity {
 
             @Override
             public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
-                if (direction == ItemTouchHelper.RIGHT) {
-                    if (MyApp.recyclerViewMode.equals("trash")) {
-                        Toast.makeText(c, "note restored from trash", Toast.LENGTH_SHORT).show();
-                        searchAdapter.untrashItem(viewHolder.getAdapterPosition());
-                    } else {
-                        Toast.makeText(c, "note trashed", Toast.LENGTH_SHORT).show();
-                        searchAdapter.trashItem(viewHolder.getAdapterPosition());
-                    }
-                }
-                if (direction == ItemTouchHelper.LEFT) {
-                    searchAdapter.deleteItem(viewHolder.getAdapterPosition());
-                    Toast.makeText(c, "deleted", Toast.LENGTH_SHORT).show();
-                }
+                setSwiping(viewHolder, direction);
             }
         }).attachToRecyclerView(recyclerView);
 
@@ -553,7 +580,6 @@ public class MainActivity extends MyActivity {
                 break;
         }
     }
-
 
 
     @Override
