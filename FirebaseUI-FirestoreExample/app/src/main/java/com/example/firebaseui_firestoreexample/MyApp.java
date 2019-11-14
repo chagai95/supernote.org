@@ -19,6 +19,7 @@ import android.net.ConnectivityManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.provider.Settings;
+import android.util.Log;
 import android.util.Pair;
 
 import androidx.annotation.NonNull;
@@ -712,6 +713,13 @@ public class MyApp extends Application {
                         friends.put(newUserCloudUserData.getCloudUser().getUid(), newUserCloudUserData);
                     }
                 });
+                LocationReminderData locationReminderData;
+                if (locationReminders.get(reminderId) == null)
+                    locationReminderData = locationReminders.put(reminderDocRef.getId(), new LocationReminderData(reminderDocRef, userReminder));
+                else {
+                    locationReminderData = Objects.requireNonNull(locationReminders.get(reminderId));
+                    locationReminderData.setLocationReminder(userReminder);
+                }
 
                 documentReferenceUser.addSnapshotListener((documentSnapshot, e) -> {
                     assert documentSnapshot != null;
@@ -719,11 +727,40 @@ public class MyApp extends Application {
                     assert cloudUser != null;
                     GeoPoint geoPoint = cloudUser.getGeoPoint();
                     reminder.getReference().update("geoPoint", geoPoint);
+                    if (locationReminderData != null)
+                        if (!userReminder.isDone() && !userReminder.isTrash()) {
+                            if (geoPoint != null) {
+                                Location locationLocationReminder = new Location("");//provider name is unnecessary
+                                locationLocationReminder.setLatitude(geoPoint.getLatitude());
+                                locationLocationReminder.setLongitude(geoPoint.getLongitude());
+                                LocationManager locationManager = (LocationManager) getContext().getSystemService(LOCATION_SERVICE);
+                                try {
+                                    Location location = locationManager.getLastKnownLocation("gps");
+                                    float distanceInMeters = locationLocationReminder.distanceTo(location);
+                                    Calendar calendar = Calendar.getInstance();
+                                    String today = MyDayOfWeek.values()[calendar.get(Calendar.DAY_OF_WEEK)].name().toLowerCase();
+                                    int hour = calendar.get(Calendar.HOUR_OF_DAY);
+                                    if (userReminder.getNotifyUsers().contains(userUid))
+                                        if (userReminder.getDaysOfWeek().contains(today) && userReminder.getStartHourOfDay() <= hour
+                                                && userReminder.getEndHourOfDay() >= hour + 1)
+                                            if (userReminder.getRadius() > (double) distanceInMeters) {
+                                                if (!locationReminderData.isInRadius()) {
+                                                    locationReminderData.setInRadius(true);
+                                                    if (userReminder.isArrive())
+                                                        createNotificationForLocationReminder(locationReminderData.getDocumentReference(), getContext());
+                                                }
+                                            } else if (locationReminderData.isInRadius()) {
+                                                locationReminderData.setInRadius(false);
+                                                if (userReminder.isLeave())
+                                                    createNotificationForLocationReminder(locationReminderData.getDocumentReference(), getContext());
+                                            }
+                                } catch (SecurityException se) {
+                                        Log.i("SecurityException", se.getMessage());
+                                }
+                            }
+                        }
                 });
-                if (locationReminders.get(reminderId) == null)
-                    locationReminders.put(reminderDocRef.getId(), new LocationReminderData(reminderDocRef, userReminder));
-                else
-                    Objects.requireNonNull(locationReminders.get(reminderId)).setLocationReminder(userReminder);
+
                 break;
         }
     }

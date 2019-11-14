@@ -250,6 +250,7 @@ public class RemindersActivity extends MyActivity {
 
                             }
                         }));
+        
     }
 
     private void addReminder(ReminderData reminderData) {

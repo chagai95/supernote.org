@@ -80,13 +80,14 @@ public class EditNoteActivity extends MyActivity {
     private EditText editTextTitle;
     private EditText editTextDescription;
 
-    private DocumentReference documentRef;
+    private DocumentReference documentRef;//TODO look up where init in onResume newNote
     public static ListenerRegistration registration;
 
     TextWatcher textWatcherTitle;
     TextWatcher textWatcherDescription;
 
     NoteData noteData;
+    String noteID;
 
     Context c = this;
 
@@ -153,6 +154,9 @@ public class EditNoteActivity extends MyActivity {
         CollectionReference notesCollRef = FirebaseFirestore.getInstance()
                 .collection("notes");
 
+        if (MyApp.myCloudUserData != null)
+            sharedUsernamesMap.put(MyApp.myCloudUserData.getCloudUser().getUsername(), MyApp.myCloudUserData);
+
         newNote = getIntent().getBooleanExtra("newNote", false);
         if (newNote) {
             setTitle("Add Note");
@@ -170,6 +174,7 @@ public class EditNoteActivity extends MyActivity {
                                 documentRef = documentReference;
                                 noteData = new NoteData(documentReference);
                                 MyApp.allNotes.put(documentReference.getId(), noteData);
+
                                 if (MyApp.internetDisabledInternally)
                                     db.disableNetwork();
                                 if (isNetworkAvailable() && !MyApp.internetDisabledInternally)
@@ -201,7 +206,7 @@ public class EditNoteActivity extends MyActivity {
             setTitle("Edit Note");
             editTextTitle.setCursorVisible(false);
 
-            String noteID = Objects.requireNonNull(getIntent().getStringExtra("noteID"));
+            noteID = Objects.requireNonNull(getIntent().getStringExtra("noteID"));
 
             String intentAction = getIntent().getAction();
             if (intentAction != null && intentAction.equals("reminder")) {
@@ -226,8 +231,6 @@ public class EditNoteActivity extends MyActivity {
             if (noteData != null) {
                 documentRef = noteData.getDocumentReference();
                 if (!MyApp.userSkippedLogin) {
-                    if (MyApp.myCloudUserData != null)
-                        sharedUsernamesMap.put(MyApp.myCloudUserData.getCloudUser().getUsername(), MyApp.myCloudUserData);
                     loadSharedUsers();
                     createUsernameMapForFriends();
                 }
@@ -251,8 +254,6 @@ public class EditNoteActivity extends MyActivity {
                         documentRef = noteData.getDocumentReference();
 
                         if (!MyApp.userSkippedLogin) {
-                            if (MyApp.myCloudUserData != null)
-                                sharedUsernamesMap.put(MyApp.myCloudUserData.getCloudUser().getUsername(), MyApp.myCloudUserData);
                             loadSharedUsers();
                             createUsernameMapForFriends();
                         }
@@ -956,9 +957,14 @@ public class EditNoteActivity extends MyActivity {
             Location location = new Location("");//provider name is unnecessary
 
             double radiusDouble;
-            if (!radiusString.equals(""))
-                radiusDouble = Double.parseDouble(radiusString);
-            else radiusDouble = 40;
+            try {
+                if (!radiusString.equals(""))
+                    radiusDouble = Double.parseDouble(radiusString);
+                else radiusDouble = 40;
+            } catch (NumberFormatException e){
+                radiusDouble = 40;
+            }
+
             String[] split = locationString.split(",");
             double locationLatitude = Double.parseDouble(split[0]);
             double locationLongitude = Double.parseDouble(split[1]);
@@ -1009,7 +1015,7 @@ public class EditNoteActivity extends MyActivity {
     }
 
     private void addTimeToLocationReminder(LocationReminder locationReminder) {
-        if(daysOfWeek!=null) {
+        if (daysOfWeek != null) {
             locationReminder.setDaysOfWeek(daysOfWeek);
             locationReminder.setStartHourOfDay(startHourOfDay);
             locationReminder.setEndHourOfDay(endHourOfDay);
@@ -1059,7 +1065,6 @@ public class EditNoteActivity extends MyActivity {
         numberPickerStartTime.setDisplayedValues(hourStringsStartTime);
 
 
-
         timeOfDayLayout.addView(numberPickerStartTime);
 
         TextView textViewEndTime = new TextView(c);
@@ -1081,20 +1086,19 @@ public class EditNoteActivity extends MyActivity {
         numberPickerEndTime.setDisplayedValues(hourStringsEndTime);
         numberPickerStartTime.setOnScrollListener((view, scrollState) -> {
             positionStartTime = numberPickerStartTime.getValue();
-            if (positionStartTime < positionEndTime || positionEndTime ==0 || positionStartTime == 0) {
-                setNumberPickerTextColor(numberPickerStartTime,Color.BLACK);
-                setNumberPickerTextColor(numberPickerEndTime,Color.BLACK);
+            if (positionStartTime < positionEndTime || positionEndTime == 0 || positionStartTime == 0) {
+                setNumberPickerTextColor(numberPickerStartTime, Color.BLACK);
+                setNumberPickerTextColor(numberPickerEndTime, Color.BLACK);
             } else
-                setNumberPickerTextColor(numberPickerStartTime,Color.RED);
+                setNumberPickerTextColor(numberPickerStartTime, Color.RED);
         });
         numberPickerEndTime.setOnScrollListener((view, scrollState) -> {
             positionEndTime = numberPickerEndTime.getValue();
-            if (positionStartTime < positionEndTime || positionEndTime ==0 || positionStartTime == 0) {
-                setNumberPickerTextColor(numberPickerEndTime,Color.BLACK);
-                setNumberPickerTextColor(numberPickerStartTime,Color.BLACK);
-            }
-            else
-                setNumberPickerTextColor(numberPickerEndTime,Color.RED);
+            if (positionStartTime < positionEndTime || positionEndTime == 0 || positionStartTime == 0) {
+                setNumberPickerTextColor(numberPickerEndTime, Color.BLACK);
+                setNumberPickerTextColor(numberPickerStartTime, Color.BLACK);
+            } else
+                setNumberPickerTextColor(numberPickerEndTime, Color.RED);
 
         });
         timeOfDayLayout.addView(numberPickerEndTime);
@@ -1121,7 +1125,7 @@ public class EditNoteActivity extends MyActivity {
         btnNegative.setLayoutParams(layoutParams);
         // https://stackoverflow.com/questions/2620444/how-to-prevent-a-dialog-from-closing-when-a-button-is-clicked
         alertDialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-            if (numberPickerStartTime.getValue() < numberPickerEndTime.getValue() || positionEndTime ==0 || positionStartTime == 0) {
+            if (numberPickerStartTime.getValue() < numberPickerEndTime.getValue() || positionEndTime == 0 || positionStartTime == 0) {
                 startHourOfDay = numberPickerStartTime.getValue();
                 endHourOfDay = numberPickerEndTime.getValue();
                 daysOfWeek = new ArrayList<>();
@@ -1136,27 +1140,23 @@ public class EditNoteActivity extends MyActivity {
     }
 
     // https://stackoverflow.com/questions/22962075/change-the-text-color-of-numberpicker
-    public static void setNumberPickerTextColor(NumberPicker numberPicker, int color)
-    {
+    public static void setNumberPickerTextColor(NumberPicker numberPicker, int color) {
 
-        try{
+        try {
             Field selectorWheelPaintField = numberPicker.getClass()
                     .getDeclaredField("mSelectorWheelPaint");
             selectorWheelPaintField.setAccessible(true);
-            ((Paint)selectorWheelPaintField.get(numberPicker)).setColor(color);
-        }
-        catch(NoSuchFieldException e){
-        }
-        catch(IllegalAccessException e){
-        }
-        catch(IllegalArgumentException e){
+            ((Paint) selectorWheelPaintField.get(numberPicker)).setColor(color);
+        } catch (NoSuchFieldException e) {
+        } catch (IllegalAccessException e) {
+        } catch (IllegalArgumentException e) {
         }
 
         final int count = numberPicker.getChildCount();
-        for(int i = 0; i < count; i++){
+        for (int i = 0; i < count; i++) {
             View child = numberPicker.getChildAt(i);
-            if(child instanceof EditText)
-                ((EditText)child).setTextColor(color);
+            if (child instanceof EditText)
+                ((EditText) child).setTextColor(color);
         }
         numberPicker.invalidate();
     }
@@ -1202,7 +1202,7 @@ public class EditNoteActivity extends MyActivity {
         radiusEditText.setHint("write the radius here");
         layout.addView(radiusEditText); // Notice this is an add method
 
-        if (!isNetworkAvailable() || MyApp.internetDisabledInternally) {
+        if (!isNetworkAvailable() || internetDisabledInternally) {
             final TextView noInternetMessageTextView = new TextView(c);
             noInternetMessageTextView.setText("no internet - possibly suggesting\n" +
                     "only users from friends list");
@@ -1215,10 +1215,9 @@ public class EditNoteActivity extends MyActivity {
         layout.addView(addUserAutoCompleteTextView); // Another add method
 
         CollectionReference userCollRef;
-        ArrayList<CloudUser> userSuggestions;
-        ArrayList<String> usernameSuggestions;
-        usernameSuggestions = new ArrayList<>();
-        userSuggestions = new ArrayList<>();
+        HashMap<String, CloudUserData> usernameSuggestions = new HashMap<>();
+        ArrayList<String> usernamesStrings = new ArrayList<>();
+
         userCollRef = db.collection("users");
         userCollRef.get().addOnCompleteListener(task -> {
             if (task.isSuccessful()) {
@@ -1228,30 +1227,17 @@ public class EditNoteActivity extends MyActivity {
                         querySnapshot.getDocuments()) {
                     CloudUser cloudUser = documentSnapshot.toObject(CloudUser.class);
                     assert cloudUser != null;
-                    userSuggestions.add(cloudUser);
-                    usernameSuggestions.add(cloudUser.getUsername());
+                    usernameSuggestions.put(cloudUser.getUsername(), new CloudUserData(cloudUser, documentSnapshot.getReference()));
                 }
-                userSuggestions.remove(MyApp.myCloudUserData.getCloudUser());
-                usernameSuggestions.remove(MyApp.myCloudUserData.getCloudUser().getUsername());
+                usernameSuggestions.remove(myCloudUserData.getCloudUser().getUsername());
+                usernamesStrings.addAll(usernameSuggestions.keySet());
             }
         });
 
-        MyApp.myCloudUserData.getDocumentReference().get().addOnCompleteListener(task -> {
-            if (task.isSuccessful()) {
-                DocumentSnapshot documentSnapshot = task.getResult();
-                assert documentSnapshot != null;
-                CloudUser cloudUser = documentSnapshot.toObject(CloudUser.class);
-                assert cloudUser != null;
-                for (String friend :
-                        cloudUser.getFriends()) {
-                    if (!usernameSuggestions.contains(friend))
-                        usernameSuggestions.add(friend);
-                }
-            }
-        });
-
-
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, usernameSuggestions);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            usernameSuggestions.forEach(friendsUsernamesMap::putIfAbsent);
+        }
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, usernamesStrings);
         addUserAutoCompleteTextView.setAdapter(adapter);
 
 
@@ -1263,28 +1249,41 @@ public class EditNoteActivity extends MyActivity {
         alert.setPositiveButton("continue", (dialog, whichButton) -> {
             String radiusString = radiusEditText.getText().toString();
 
-            double radiusDouble = Double.parseDouble(radiusString);
-            String username = addUserAutoCompleteTextView.getText().toString();
-            int index = usernameSuggestions.indexOf(username);
-            String userID = userSuggestions.get(index).getUid();
-            UserReminder userReminder = new UserReminder(
-                    userID
-                    , radiusDouble);
-            userReminder.setNotifyUsers(getUserIDs(usernames, sharedUsernamesMap));
-            addPreviewAndWhatsapp(userReminder);
-            db.enableNetwork();
-            documentRef.collection("Reminders")
-                    .add(userReminder)
-                    .addOnCompleteListener(task -> {
-                        if (task.isSuccessful()) {
-                            // using the username variable in a listener scope might be problematic - everywhere.
-                            // the solution will be to get the object from the document snapshot
-                            MyApp.locationReminders.put(Objects.requireNonNull(task.getResult()).getId(),
-                                    new UserReminderData(task.getResult(), userReminder));
-                            Toast.makeText(this, "user reminder added with user: " + addUserAutoCompleteTextView.getText().toString(), Toast.LENGTH_LONG).show();
-                        }
-                    });
+            double radiusDouble;
+            try {
+            if (!radiusString.equals(""))
+                radiusDouble = Double.parseDouble(radiusString);
+            else radiusDouble = 40;
+            } catch (NumberFormatException e){
+                radiusDouble = 40;
+            }
 
+            String username = addUserAutoCompleteTextView.getText().toString();
+            CloudUserData cloudUserData = usernameSuggestions.get(username);
+            CloudUser cloudUser;
+            if (cloudUserData != null) {
+                cloudUser = cloudUserData.getCloudUser();
+                if (cloudUser != null) {
+                    String userID = cloudUser.getUid();
+                    UserReminder userReminder = new UserReminder(
+                            userID
+                            , radiusDouble);
+                    userReminder.setNotifyUsers(getUserIDs(usernames, sharedUsernamesMap));
+                    addPreviewAndWhatsapp(userReminder);
+                    db.enableNetwork();
+                    documentRef.collection("Reminders")
+                            .add(userReminder)
+                            .addOnCompleteListener(task -> {
+                                if (task.isSuccessful()) {
+                                    // using the username variable in a listener scope might be problematic - everywhere.
+                                    // the solution will be to get the object from the document snapshot
+                                    locationReminders.put(Objects.requireNonNull(task.getResult()).getId(),
+                                            new UserReminderData(task.getResult(), userReminder));
+                                    makeText(this, "user reminder added with user: " + addUserAutoCompleteTextView.getText().toString(), Toast.LENGTH_LONG).show();
+                                }
+                            });
+                }
+            }
         });
 
         alert.setNegativeButton("Cancel", (dialog, whichButton) -> {
@@ -1352,9 +1351,8 @@ public class EditNoteActivity extends MyActivity {
     }
 
     private void titleHistory() {
-        String id = getIntent().getStringExtra("noteID");
         Intent intent = new Intent(EditNoteActivity.this, TitleHistoryActivity.class);
-        intent.putExtra("noteID", id);
+        intent.putExtra("noteID", noteID);
         intent.putExtra("title", editTextTitle.getText().toString());
         startActivity(intent);
     }
