@@ -78,6 +78,9 @@ public class NotificationHelper {
         String doneButton = mContext.getString(R.string.done);
         PendingIntent donePendingIntentButton = createPendingIntent("done");
 
+        String trashButton = mContext.getString(R.string.trash);
+        PendingIntent trashPendingIntentButton = createPendingIntent("trash");
+
         String snoozeButton = mContext.getString(R.string.snooze);
         PendingIntent snoozePendingIntentButton = createPendingIntent("snooze");
 
@@ -97,6 +100,7 @@ public class NotificationHelper {
                 .setContentIntent(notifyIntent)
                 .setAutoCancel(true)
                 .setSound(alarmSound)
+                .addAction(R.drawable.ic_save, trashButton, trashPendingIntentButton)
                 .setDeleteIntent(pendingIntentSwiped);// this gets triggered when we dismiss (swipe away) the notification or click clear all in the notification panel.
 
         if (MyApp.timeReminders.containsKey(reminderDocumentReference.getId())) {

@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
+import android.graphics.Point;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -13,6 +14,7 @@ import android.telephony.PhoneStateListener;
 import android.telephony.SignalStrength;
 import android.telephony.TelephonyManager;
 import android.util.Log;
+import android.view.Display;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -49,7 +51,6 @@ import com.example.firebaseui_firestoreexample.utils.MyActivityLifecycleCallback
 import com.example.firebaseui_firestoreexample.utils.MyDatePickerFragment;
 import com.example.firebaseui_firestoreexample.utils.NetworkUtil;
 import com.example.firebaseui_firestoreexample.utils.NotificationHelper;
-import com.example.firebaseui_firestoreexample.utils.TrafficLight;
 import com.firebase.ui.auth.AuthUI;
 import com.firebase.ui.firestore.FirestoreRecyclerOptions;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -89,7 +90,6 @@ public class MainActivity extends MyActivity {
 
     boolean onCreateCalled;
     InternetThread internetThread;
-    private TrafficLight lastTrafficLightState;
 
     private Context c = this;
     private String searchText = "";
@@ -105,6 +105,8 @@ public class MainActivity extends MyActivity {
 
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        setScreenHeight();
 
         coordinatorLayout = findViewById(R.id.coordinatorLayoutMainActivity);
 
@@ -150,6 +152,13 @@ public class MainActivity extends MyActivity {
             locationPermission();
 
         }
+    }
+
+    private void setScreenHeight() {
+        Display display = getWindowManager().getDefaultDisplay();
+        Point size = new Point();
+        display.getSize(size);
+        height = size.y;
     }
 
     private void setFilterAndSortOptions() {
@@ -608,16 +617,13 @@ public class MainActivity extends MyActivity {
     protected void onResume() {
         super.onResume();
         MyApp.activityMainResumed();
-        if (!onCreateCalled && MyApp.currentTrafficLightState != lastTrafficLightState)
+        if (!onCreateCalled && MyApp.currentTrafficLightState != getLastTrafficLightState())
             recreate();
     }
 
     @Override
     public Resources.Theme getTheme() {
-        super.setLastTrafficLightState(lastTrafficLightState);
-        Resources.Theme theme = super.getTrafficLightTheme();
-        lastTrafficLightState = super.getLastTrafficLightState();
-        return theme;
+        return super.getTrafficLightTheme();
     }
 
     boolean isNetworkAvailable() {
@@ -817,8 +823,10 @@ public class MainActivity extends MyActivity {
     }
 
     private void addWhatsappReminderToReportBug() {
+        dialogShowing();
         AlertDialog.Builder alert = new AlertDialog.Builder(this);
         LinearLayout layout = new LinearLayout(c);
+        dialogView = layout;
         layout.setOrientation(LinearLayout.VERTICAL);
 
 
@@ -838,8 +846,9 @@ public class MainActivity extends MyActivity {
         });
 
         alert.setNegativeButton("Cancel", (dialog, whichButton) -> {
-            // Canceled.
+            dialogNotShowing();
         });
+        alert.setOnDismissListener(dialog -> dialogNotShowing());
         AlertDialog alertDialog = alert.show();
         Button btnPositive = alertDialog.getButton(AlertDialog.BUTTON_POSITIVE);
         Button btnNegative = alertDialog.getButton(AlertDialog.BUTTON_NEGATIVE);

@@ -158,7 +158,6 @@ public class LoginActivity extends MyActivity {
     // added for the traffic light
 
     boolean onCreateCalled;
-    private TrafficLight lastTrafficLightState;
 
     @Override
     protected void onPause() {
@@ -172,7 +171,7 @@ public class LoginActivity extends MyActivity {
 
         // add in MyApp and in NetworkChangeReciever for the traffic light
         MyApp.activityLoginResumed();
-        if (!onCreateCalled && MyApp.currentTrafficLightState != lastTrafficLightState)
+        if (!onCreateCalled && MyApp.currentTrafficLightState != getLastTrafficLightState())
             recreate();
     }
 
@@ -184,10 +183,7 @@ public class LoginActivity extends MyActivity {
 
     @Override
     public Resources.Theme getTheme() {
-        super.setLastTrafficLightState(lastTrafficLightState);
-        Resources.Theme theme = super.getTrafficLightTheme();
-        lastTrafficLightState = super.getLastTrafficLightState();
-        return theme;
+        return super.getTrafficLightTheme();
     }
 
     // until here for the traffic light

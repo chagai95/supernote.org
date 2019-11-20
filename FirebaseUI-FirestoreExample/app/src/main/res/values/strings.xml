@@ -10,7 +10,11 @@
     <string name="swipe_left_to_permanently_delete">swipe left to permanently delete</string>
     <string name="sendWhatsapp">send</string>
     <string name="snooze">snooze</string>
+    <string name="trash">trash</string>
     <string name="done">mark done</string>
+    <string name="new_note">add new note</string>
+    <string name="new_reminder">add new reminder</string>
+    <string name="search">search</string>
     <string name="next_time">next time</string>
     <string name="username_text_explaining_what_to_do">change username here:</string>
     <string name="current_username" />

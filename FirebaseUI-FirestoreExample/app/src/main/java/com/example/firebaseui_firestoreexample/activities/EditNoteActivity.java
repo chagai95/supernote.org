@@ -20,6 +20,7 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -51,7 +52,6 @@ import com.example.firebaseui_firestoreexample.reminders.LocationReminder;
 import com.example.firebaseui_firestoreexample.reminders.UserReminder;
 import com.example.firebaseui_firestoreexample.MyApp;
 import com.example.firebaseui_firestoreexample.firestore_data.NoteData;
-import com.example.firebaseui_firestoreexample.utils.TrafficLight;
 import com.google.common.collect.ObjectArrays;
 import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.CollectionReference;
@@ -93,7 +93,6 @@ public class EditNoteActivity extends MyActivity {
 
     boolean onCreateCalled;
     private boolean keepOffline;
-    private TrafficLight lastTrafficLightState;
     private FirebaseFirestore db = FirebaseFirestore.getInstance();
 
     AlertDialog alertDialogForSharingWithAnotherUser;
@@ -128,14 +127,24 @@ public class EditNoteActivity extends MyActivity {
     @SuppressLint("ClickableViewAccessibility") // to complicated and only for blind people.
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        //TODO set the traffic light theme here before calling getTheme!
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_edit_note);
 
-//        SwipeRefreshLayout swipeRefreshLayout = findViewById(R.id.pullToRefreshEditNoteActivity);
-//        swipeToRefresh(swipeRefreshLayout);
+/*
+        SwipeRefreshLayout swipeRefreshLayout = findViewById(R.id.pullToRefreshEditNoteActivity);
+        swipeToRefresh(swipeRefreshLayout);
+        Objects.requireNonNull(getSupportActionBar()).setHomeAsUpIndicator(R.drawable.ic_close); // added Objects.requireNonNull to avoid warning
+*/
+
+/*
+ TODO change size of edit text when the keyboard opens so it is possible to scroll til the end
+  the edit_text_description has a weight of 10 which is weird, also it doesn't seem to be changeable.
+  perhaps create a new LinearLayout and two EditTexts for this and replace them with the others?
+ listenOnKeyboardSize();
+*/
 
 
-//        Objects.requireNonNull(getSupportActionBar()).setHomeAsUpIndicator(R.drawable.ic_close); // added Objects.requireNonNull to avoid warning
 
 
         alertList = new LinkedList<>();
@@ -272,6 +281,17 @@ public class EditNoteActivity extends MyActivity {
                 });
             }
         }
+    }
+
+    private void listenOnKeyboardSize() {
+        View root = findViewById(android.R.id.content);
+        root.getViewTreeObserver().addOnGlobalLayoutListener(() -> {
+            int heightDiff = root.getRootView().getHeight()- root.getHeight();
+            // IF height diff is more then 150, consider keyboard as visible.
+            if(heightDiff>150) {
+                ViewGroup.LayoutParams layoutParams = editTextTitle.getLayoutParams();
+            }
+        });
     }
 
     private void createUsernameMapForFriends() {
@@ -553,6 +573,8 @@ public class EditNoteActivity extends MyActivity {
     //    add a button instead of cancel to go back and choose a different reminder type for every reminder dialog.
     @RequiresApi(api = Build.VERSION_CODES.M)
     private void addReminder() {
+        dialogShowing();
+
         AlertDialog.Builder alert = new AlertDialog.Builder(c);
 
         alert.setTitle("choose users:");
@@ -568,6 +590,7 @@ public class EditNoteActivity extends MyActivity {
         }
 
         LinearLayout layout = new LinearLayout(c);
+        dialogView = layout;
         layout.setOrientation(LinearLayout.VERTICAL);
 
         LinearLayout previewLayout = new LinearLayout(c);
@@ -680,7 +703,14 @@ public class EditNoteActivity extends MyActivity {
         });
 
         alert.setNegativeButton("cancel", (dialog, whichButton) -> {
-            //cancel
+            dialogNotShowing();
+        });
+
+        alert.setOnDismissListener(dialog ->{
+            if(newDialogShowing)
+                newDialogShowing = false;
+            else
+                dialogNotShowing();
         });
 
         addReminderAlertDialog = alert.create();
@@ -723,6 +753,9 @@ public class EditNoteActivity extends MyActivity {
 
 
     private void shareWithAnotherUser() {
+        dialogShowing();
+
+
         AlertDialog.Builder alert = new AlertDialog.Builder(c);
         alert.setTitle("Share note");
 
@@ -774,6 +807,7 @@ public class EditNoteActivity extends MyActivity {
         });
 
         LinearLayout layout = new LinearLayout(c);
+        dialogView = layout;
         layout.setOrientation(LinearLayout.VERTICAL);
 //      add layout
         if (!isNetworkAvailable() || MyApp.internetDisabledInternally) {
@@ -847,12 +881,16 @@ public class EditNoteActivity extends MyActivity {
                         MyApp.friends.put(newUserCloudUserData.getCloudUser().getUid(), newUserCloudUserData);
                         Toast.makeText(this, "note shared with " + newUserUsername, Toast.LENGTH_LONG).show();
                         alertDialogForSharingWithAnotherUser.cancel();
+                        dialogNotShowing();
                     });
             if (!isNetworkAvailable() || MyApp.internetDisabledInternally) {
                 Toast.makeText(this, "note will be shared with: " + newUserUsername + " when internet is available", Toast.LENGTH_LONG).show();
                 alertDialogForSharingWithAnotherUser.cancel();
+                dialogNotShowing();
             }
         });
+
+        alert.setOnDismissListener(dialog -> dialogNotShowing());
 
         alertDialogForSharingWithAnotherUser = alert.show();
     }
@@ -879,8 +917,11 @@ public class EditNoteActivity extends MyActivity {
 
     @RequiresApi(api = Build.VERSION_CODES.M)
     private void createAlertForLocationReminder(ArrayList<String> usernames) {
+        dialogShowing();
+        MyApp.newDialogShowing = true;
         AlertDialog.Builder alert = new AlertDialog.Builder(this);
         LinearLayout layout = new LinearLayout(c);
+        dialogView = layout;
         layout.setOrientation(LinearLayout.VERTICAL);
 
         alert.setTitle("Location Reminder");
@@ -947,6 +988,7 @@ public class EditNoteActivity extends MyActivity {
 
         alert.setView(layout); // Again this is a set method, not add
 
+
         //only works once for some reason
         alert.setPositiveButton("Ok", (dialog, whichButton) -> {
             String radiusString = radiusEditText.getText().toString();
@@ -1001,9 +1043,12 @@ public class EditNoteActivity extends MyActivity {
         });
 
         alert.setNegativeButton("Cancel", (dialog, whichButton) -> {
-            // Canceled.
+            dialogNotShowing();
         });
+        alert.setOnDismissListener(dialog -> dialogNotShowing());
+
         AlertDialog alertDialog = alert.show();
+
         Button btnPositive = alertDialog.getButton(AlertDialog.BUTTON_POSITIVE);
         Button btnNegative = alertDialog.getButton(AlertDialog.BUTTON_NEGATIVE);
 
@@ -1023,9 +1068,11 @@ public class EditNoteActivity extends MyActivity {
     }
 
     private void createAlertToAddTimeToLocationReminder() {
+        dialogShowing();
 
         AlertDialog.Builder alert = new AlertDialog.Builder(this);
         LinearLayout layout = new LinearLayout(c);
+        dialogView = layout;
         layout.setOrientation(LinearLayout.VERTICAL);
 
         alert.setTitle("Time For Location Reminder");
@@ -1109,12 +1156,13 @@ public class EditNoteActivity extends MyActivity {
 
         //only works once for some reason
         alert.setPositiveButton("Ok", (dialog, whichButton) -> {
-
+            // alertDialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {...
         });
 
         alert.setNegativeButton("Cancel", (dialog, whichButton) -> {
-            // Canceled.
         });
+
+
         AlertDialog alertDialog = alert.show();
         Button btnPositive = alertDialog.getButton(AlertDialog.BUTTON_POSITIVE);
         Button btnNegative = alertDialog.getButton(AlertDialog.BUTTON_NEGATIVE);
@@ -1134,8 +1182,9 @@ public class EditNoteActivity extends MyActivity {
                         daysOfWeek.add(daysArray[i].toLowerCase());
                 }
                 alertDialog.dismiss();
-                //else dialog stays open. Make sure you have an obvious way to close the dialog especially if you set cancellable to false.
+                //TODO find something smart for this case dialogNotShowing();
             }
+                //else dialog stays open.
         });
     }
 
@@ -1193,8 +1242,11 @@ public class EditNoteActivity extends MyActivity {
     }
 
     private void createAlertForUserReminder(ArrayList<String> usernames) {
+        dialogShowing();
+        MyApp.newDialogShowing = true;
         AlertDialog.Builder alert = new AlertDialog.Builder(this);
         LinearLayout layout = new LinearLayout(c);
+        dialogView = layout;
         layout.setOrientation(LinearLayout.VERTICAL);
 
         // Add a TextView here for the number label, as noted in the comments
@@ -1284,11 +1336,13 @@ public class EditNoteActivity extends MyActivity {
                             });
                 }
             }
+            dialogNotShowing();
         });
 
         alert.setNegativeButton("Cancel", (dialog, whichButton) -> {
-            // Canceled.
+            dialogNotShowing();
         });
+        alert.setOnDismissListener(dialog -> dialogNotShowing());
         AlertDialog alertDialog = alert.show();
         Button btnPositive = alertDialog.getButton(AlertDialog.BUTTON_POSITIVE);
         Button btnNegative = alertDialog.getButton(AlertDialog.BUTTON_NEGATIVE);
@@ -1431,7 +1485,7 @@ public class EditNoteActivity extends MyActivity {
     protected void onResume() {
         super.onResume();
         MyApp.activityEditNoteResumed();
-        if (!onCreateCalled && MyApp.currentTrafficLightState != lastTrafficLightState)
+        if (!onCreateCalled && MyApp.currentTrafficLightState != getLastTrafficLightState())
             recreate();
 
         if (!newNote) {
@@ -1630,10 +1684,7 @@ public class EditNoteActivity extends MyActivity {
 
     @Override
     public Resources.Theme getTheme() {
-        super.setLastTrafficLightState(lastTrafficLightState);
-        Resources.Theme theme = super.getTrafficLightTheme();
-        lastTrafficLightState = super.getLastTrafficLightState();
-        return theme;
+        return super.getTrafficLightTheme();
     }
 
 }

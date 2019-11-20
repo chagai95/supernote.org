@@ -31,6 +31,9 @@ import java.util.Objects;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import static com.example.firebaseui_firestoreexample.MyApp.currentTrafficLightState;
+import static com.example.firebaseui_firestoreexample.MyApp.isDialogShowing;
+
 abstract public class MyActivity extends AppCompatActivity {
 
     FirebaseFirestore db;
@@ -38,6 +41,8 @@ abstract public class MyActivity extends AppCompatActivity {
     private TrafficLight lastTrafficLightState;
 
     private Context c = this;
+
+    public View dialogView;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -53,22 +58,26 @@ abstract public class MyActivity extends AppCompatActivity {
 //        new Online().run();
         if (MyApp.internetDisabledInternally) {
             theme.applyStyle(R.style.InternOffline, true);
-            MyApp.currentTrafficLightState = TrafficLight.INTERN_OFFLINE;
-            lastTrafficLightState = TrafficLight.INTERN_OFFLINE;
+            currentTrafficLightState = TrafficLight.INTERN_OFFLINE;
+            if(!MyApp.isDialogShowing())
+                lastTrafficLightState = TrafficLight.INTERN_OFFLINE;
         } else if (isNetworkAvailable()) {
             if (NetworkUtil.getConnectivityStatusString(this) == NetworkUtil.NETWORK_STATUS_MOBILE && !NetworkUtil.fastConnection(NetworkUtil.networkType)) {
                 theme.applyStyle(R.style.MaybeConnected, true);
-                MyApp.currentTrafficLightState = TrafficLight.MAYBE_CONNECTED;
-                lastTrafficLightState = TrafficLight.MAYBE_CONNECTED;
+                currentTrafficLightState = TrafficLight.MAYBE_CONNECTED;
+                if(!MyApp.isDialogShowing())
+                    lastTrafficLightState = TrafficLight.MAYBE_CONNECTED;
             } else {
                 theme.applyStyle(R.style.Online, true);
-                MyApp.currentTrafficLightState = TrafficLight.ONLINE;
-                lastTrafficLightState = TrafficLight.ONLINE;
+                currentTrafficLightState = TrafficLight.ONLINE;
+                if(!MyApp.isDialogShowing())
+                    lastTrafficLightState = TrafficLight.ONLINE;
             }
         } else {
             theme.applyStyle(R.style.Offline, true);
-            MyApp.currentTrafficLightState = TrafficLight.OFFLINE;
-            lastTrafficLightState = TrafficLight.OFFLINE;
+            currentTrafficLightState = TrafficLight.OFFLINE;
+            if(!MyApp.isDialogShowing())
+                lastTrafficLightState = TrafficLight.OFFLINE;
         }
 
         return theme;
@@ -84,6 +93,7 @@ abstract public class MyActivity extends AppCompatActivity {
                 "\n \n if not enter how long you want to ignore this warning for:");
 
         LinearLayout layout = new LinearLayout(c);
+        dialogView = layout;
         layout.setOrientation(LinearLayout.HORIZONTAL);
 
         final EditText ignoreSlowInternetWarning = new EditText(c);
@@ -113,18 +123,18 @@ abstract public class MyActivity extends AppCompatActivity {
                     + " " + dropdownTimeType.getSelectedItem().toString(), Toast.LENGTH_LONG).show();
             MyApp.showDialogWhenInternetSlow = false;
             long timeTypeLong = 1;
-            switch (dropdownTimeType.getSelectedItem().toString()){
+            switch (dropdownTimeType.getSelectedItem().toString()) {
                 case "minutes":
-                    timeTypeLong = 1000*60;
+                    timeTypeLong = 1000 * 60;
                     break;
                 case "hours":
-                    timeTypeLong = 1000*60*60;
+                    timeTypeLong = 1000 * 60 * 60;
                     break;
                 case "days":
-                    timeTypeLong = 1000*60*60*24;
+                    timeTypeLong = 1000 * 60 * 60 * 24;
                     break;
                 case "weeks":
-                    timeTypeLong = 1000*60*60*24*7;
+                    timeTypeLong = 1000 * 60 * 60 * 24 * 7;
                     break;
             }
             new Timer().schedule(new TimerTask() {
@@ -132,7 +142,7 @@ abstract public class MyActivity extends AppCompatActivity {
                 public void run() {
                     MyApp.showDialogWhenInternetSlow = true;
                 }
-            },timeTypeLong*Integer.parseInt(ignoreSlowInternetWarning.getText().toString()));
+            }, timeTypeLong * Integer.parseInt(ignoreSlowInternetWarning.getText().toString()));
         });
         AlertDialog alertDialog = alert.show();
         Button btnPositive = alertDialog.getButton(AlertDialog.BUTTON_POSITIVE);
@@ -205,18 +215,20 @@ abstract public class MyActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        if(MyApp.currentTrafficLightState==TrafficLight.MAYBE_CONNECTED && MyApp.showDialogWhenInternetSlow)
-            askAboutDisablingInternalInternet();
-        // add in MyApp and in NetworkChangeReciever for the traffic light
-        MyApp.activityResumed();
-        if (!onCreateCalled && MyApp.currentTrafficLightState != lastTrafficLightState)
-            recreate();
+
+        if (!onCreateCalled && currentTrafficLightState != lastTrafficLightState) {
+            if (currentTrafficLightState == TrafficLight.MAYBE_CONNECTED && MyApp.showDialogWhenInternetSlow)
+                askAboutDisablingInternalInternet();
+            if (isDialogShowing())
+                Toast.makeText(c, "internet state changed", Toast.LENGTH_LONG).show();
+            else
+                recreate();
+        }
     }
 
     @Override
     protected void onStop() {
         super.onStop();
-        MyApp.activityStopped();
     }
 
 

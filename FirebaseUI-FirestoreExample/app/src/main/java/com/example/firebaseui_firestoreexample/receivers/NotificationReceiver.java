@@ -13,10 +13,12 @@ import android.widget.Toast;
 
 import com.example.firebaseui_firestoreexample.MyApp;
 import com.example.firebaseui_firestoreexample.activities.OpenFragmentActivity;
+import com.example.firebaseui_firestoreexample.firestore_data.NoteData;
 import com.example.firebaseui_firestoreexample.firestore_data.ReminderData;
 import com.example.firebaseui_firestoreexample.firestore_data.TimeReminderData;
 import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.DocumentSnapshot;
 
 import java.util.Date;
 import java.util.Objects;
@@ -47,9 +49,13 @@ public class NotificationReceiver extends BroadcastReceiver {
                             clearNotification(context, reminderData.getNotificationID());
                             reminderData.getDocumentReference().update("done", true);
                             break;
+                        case "trash":
+                            clearNotification(context, reminderData.getNotificationID());
+                            trashNote(noteID);
+                            break;
                         case "next time":
                             clearNotification(context, reminderData.getNotificationID());
-                            if(!(reminderData.getReminder().getAmountOfRepeats()==1))
+                            if (!(reminderData.getReminder().getAmountOfRepeats() == 1))
                                 reminderData.getReminder().decrementAmountOfRepeats();
                             break;
                         case "snooze":
@@ -72,6 +78,23 @@ public class NotificationReceiver extends BroadcastReceiver {
                             break;
                     }
             }
+        }
+    }
+
+    private void trashNote(String noteID) {
+        NoteData noteData = MyApp.allNotes.get(noteID);
+        DocumentReference documentReference;
+        if (noteData != null) {
+            documentReference = noteData.getDocumentReference();
+            documentReference.collection("Reminders").get().addOnCompleteListener(task -> {
+                if (task.isSuccessful()) {
+                    for (DocumentSnapshot documentSnapshot :
+                            Objects.requireNonNull(task.getResult()).getDocuments()) {
+                        documentSnapshot.getReference().update("trash", true);
+                    }
+                }
+            });
+            documentReference.update("trash", true);
         }
     }
 
@@ -98,9 +121,9 @@ public class NotificationReceiver extends BroadcastReceiver {
     }
 
     public void clearNotification(Context mContext, int notificationID) {
-            NotificationManager notificationManager = (NotificationManager) mContext
-                    .getSystemService(Context.NOTIFICATION_SERVICE);
-            notificationManager.cancel(notificationID);
+        NotificationManager notificationManager = (NotificationManager) mContext
+                .getSystemService(Context.NOTIFICATION_SERVICE);
+        notificationManager.cancel(notificationID);
     }
 
 }

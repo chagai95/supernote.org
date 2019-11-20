@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="newNote"
+        android:enabled="true"
+        android:icon="@mipmap/ic_new_note"
+        android:shortcutShortLabel="@string/new_note"
+        android:shortcutLongLabel="@string/new_note">
+
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.example.firebaseui_firestoreexample"
+            android:targetClass="com.example.firebaseui_firestoreexample.activities.EditNoteActivity" />
+
+    </shortcut>
+    <shortcut
+        android:shortcutId="newReminder"
+        android:enabled="true"
+        android:icon="@mipmap/ic_new_reminder"
+        android:shortcutShortLabel="@string/new_reminder"
+        android:shortcutLongLabel="@string/new_reminder">
+
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.example.firebaseui_firestoreexample"
+            android:targetClass="com.example.firebaseui_firestoreexample.activities.EditNoteActivity" />
+
+    </shortcut>
+    <shortcut
+        android:shortcutId="search"
+        android:enabled="true"
+        android:icon="@mipmap/ic_search"
+        android:shortcutShortLabel="@string/search"
+        android:shortcutLongLabel="@string/search">
+
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.example.firebaseui_firestoreexample.activities"
+            android:targetClass="com.example.firebaseui_firestoreexample.activities.MainActivity" />
+
+    </shortcut>
+
+</shortcuts>

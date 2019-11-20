@@ -1,5 +1,6 @@
 package com.example.firebaseui_firestoreexample.activities.adapters;
 
+import android.view.Display;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -31,6 +32,7 @@ public class NoteAdapter extends FirestoreRecyclerAdapter<Note, NoteAdapter.Note
     protected void onBindViewHolder(@NonNull NoteHolder holder, int i, @NonNull Note model) {
         holder.textViewTitle.setText(model.getTitle());
         holder.textViewDescription.setText(model.getDescription());
+        holder.textViewDescription.setHeight(MyApp.height/10);
     }
 
     @NonNull

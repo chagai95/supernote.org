@@ -6,6 +6,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.Intent;
+import android.view.View;
 import android.widget.Toast;
 
 import com.example.firebaseui_firestoreexample.CloudUser;
@@ -18,6 +19,7 @@ import com.example.firebaseui_firestoreexample.firestore_data.CloudUserData;
 import com.example.firebaseui_firestoreexample.utils.MyActivityLifecycleCallbacks;
 import com.example.firebaseui_firestoreexample.utils.NetworkUtil;
 import com.example.firebaseui_firestoreexample.utils.TrafficLight;
+import com.google.android.material.snackbar.Snackbar;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -29,6 +31,9 @@ import java.util.List;
 
 public class NetworkChangeReceiver extends BroadcastReceiver {
 
+    Snackbar snackbar;
+    TrafficLight lastTrafficLightState;
+
 
     public NetworkChangeReceiver() {
     }
@@ -36,6 +41,9 @@ public class NetworkChangeReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(final Context context, final Intent intent) {
         Activity activity = getActivity(context);
+        if (activity instanceof EditNoteActivity) {
+             lastTrafficLightState = ((EditNoteActivity) activity).getLastTrafficLightState();
+        }
         int status = NetworkUtil.getConnectivityStatusString(context);
         if (!MyApp.internetDisabledInternally)
             if ("android.net.conn.CONNECTIVITY_CHANGE".equals(intent.getAction())) {
@@ -68,18 +76,41 @@ public class NetworkChangeReceiver extends BroadcastReceiver {
                 }
 
                 if (activity instanceof EditNoteActivity) {
-                    if (MyApp.isActivityEditNoteVisible()) activity.recreate();
+                    if (MyApp.isActivityEditNoteVisible()&&
+                            ((EditNoteActivity) activity).getLastTrafficLightState()!=MyApp.currentTrafficLightState)
+                        if(MyApp.isDialogShowing())
+                            createInternetStateChangedSnackbar(((EditNoteActivity) activity).dialogView);
+                        else
+                            activity.recreate();
                 }
                 if (activity instanceof MainActivity) {
-                    if (MyApp.isActivityMainVisible()) activity.recreate();
+                    if (MyApp.isActivityMainVisible())
+                        if(MyApp.isDialogShowing())
+                            createInternetStateChangedSnackbar(((MainActivity) activity).dialogView);
+                        else
+                            if(((MainActivity) activity).getLastTrafficLightState()!=MyApp.currentTrafficLightState)
+                                activity.recreate();
                 }
                 if (activity instanceof SettingsActivity) {
-                    if (MyApp.isActivitySettingsVisible()) activity.recreate();
+                    if(((SettingsActivity) activity).getLastTrafficLightState()!=MyApp.currentTrafficLightState)
+
+                        if (MyApp.isActivitySettingsVisible()) activity.recreate();
                 }
                 if (activity instanceof LoginActivity) {
-                    if (MyApp.isActivityLoginVisible()) activity.recreate();
+                    if(((LoginActivity) activity).getLastTrafficLightState()!=MyApp.currentTrafficLightState)
+
+                        if (MyApp.isActivityLoginVisible()) activity.recreate();
                 }
             }
+    }
+
+    private void createInternetStateChangedSnackbar(View dialogView) {
+        snackbar = Snackbar
+                .make(dialogView, "internet state changed", Snackbar.LENGTH_INDEFINITE)
+                .setAction("Dismiss", view -> {
+
+                });
+        snackbar.show();
     }
 
     private void addOfflineUsernamesToBeAddedToFriendsWhenOnline(Context context) {

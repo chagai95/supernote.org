@@ -7,6 +7,7 @@
     android:padding="16dp"
     tools:activity=".EditNoteActivity"
     android:weightSum="100"
+    android:id="@+id/linearLayoutEditNoteActivity"
     >
 
 
@@ -22,7 +23,7 @@
             android:layout_height="match_parent"
             android:inputType="text"
             tools:ignore="Autofill,LabelFor"
-            android:layout_weight="90"
+            android:layout_weight="80"
             android:gravity="top"
             />
 
@@ -30,7 +31,7 @@
 
         <EditText
             android:gravity="top"
-            android:layout_weight="10"
+            android:layout_weight="20"
             android:id="@+id/edit_text_description"
             android:layout_width="match_parent"
             android:layout_height="match_parent"

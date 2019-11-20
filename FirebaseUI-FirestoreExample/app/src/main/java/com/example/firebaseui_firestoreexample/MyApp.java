@@ -2,15 +2,18 @@ package com.example.firebaseui_firestoreexample;
 
 
 import android.Manifest;
+import android.app.Activity;
 import android.app.AlarmManager;
 import android.app.Application;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
+import android.content.ContextWrapper;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.graphics.Point;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -20,10 +23,13 @@ import android.os.Handler;
 import android.provider.Settings;
 import android.util.Log;
 import android.util.Pair;
+import android.view.Display;
 
 import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
 
+import com.example.firebaseui_firestoreexample.activities.EditNoteActivity;
+import com.example.firebaseui_firestoreexample.activities.MainActivity;
 import com.example.firebaseui_firestoreexample.activities.ShowErrorActivity;
 import com.example.firebaseui_firestoreexample.firestore_data.CloudUserData;
 import com.example.firebaseui_firestoreexample.firestore_data.LocationReminderData;
@@ -37,6 +43,7 @@ import com.example.firebaseui_firestoreexample.reminders.TimeReminder;
 import com.example.firebaseui_firestoreexample.reminders.UserReminder;
 import com.example.firebaseui_firestoreexample.reminders.WhatsappTimeReminder;
 import com.example.firebaseui_firestoreexample.receivers.NetworkChangeReceiver;
+import com.example.firebaseui_firestoreexample.utils.MyActivityLifecycleCallbacks;
 import com.example.firebaseui_firestoreexample.utils.NetworkUtil;
 import com.example.firebaseui_firestoreexample.utils.TrafficLight;
 import com.google.firebase.Timestamp;
@@ -94,9 +101,10 @@ public class MyApp extends Application {
     public static HashMap<String, CloudUserData> userReminderUsers; // possibly add this to UserReminderData
     private static boolean activityMainVisible;
     private static boolean activityLoginVisible;
-    private static boolean activityVisible;
     private static boolean activitySettingsVisible;
     private static boolean activityEditNoteVisible;
+    private static boolean dialogShowing;
+    public static boolean newDialogShowing;
     private static boolean backUpFailed;
     public static boolean appStarted;
     private static int alarmIDCounter;
@@ -113,6 +121,7 @@ public class MyApp extends Application {
 
     // uncaught exception handler variable
     private Thread.UncaughtExceptionHandler uncaughtExceptionHandler;
+    public static int height;
 
 
     public MyApp() {
@@ -188,6 +197,7 @@ public class MyApp extends Application {
     }
 
 
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -196,6 +206,8 @@ public class MyApp extends Application {
         fireStore();
         setLocationListener();
     }
+
+
 
     public void fireStore() {
         db = FirebaseFirestore.getInstance();
@@ -305,22 +317,7 @@ public class MyApp extends Application {
         }, 5000);
     }
 
-    public static void activityPaused() {
-        activityVisible = false;
-    }
 
-    // very bad idea because onstop gets called after onResume!!!
-    public static boolean isActivityVisible() {
-        return activityVisible;
-    }
-
-    public static void activityResumed() {
-        activityVisible = true;
-    }
-
-    public static void activityStopped() {
-        activityVisible = false;
-    }
 
     public static boolean isActivityLoginVisible() {
         return activityLoginVisible;
@@ -362,10 +359,47 @@ public class MyApp extends Application {
         return activityEditNoteVisible;
     }
 
+    public static boolean isDialogShowing() {
+        return dialogShowing;
+    }
+
     public static void activityEditNoteResumed() {
         activityEditNoteVisible = true;
     }
 
+    public static void dialogShowing() {
+        dialogShowing = true;
+    }
+    public static void dialogNotShowing() {
+        dialogShowing = false;
+        Activity activity= getActivity(getContext());
+        TrafficLight lastTrafficLightState;
+        if (activity instanceof MainActivity) {
+            lastTrafficLightState = ((MainActivity) activity).getLastTrafficLightState();
+            if(MyApp.currentTrafficLightState != lastTrafficLightState)
+            activity.recreate();
+        }
+        if (activity instanceof EditNoteActivity) {
+            lastTrafficLightState = ((EditNoteActivity) activity).getLastTrafficLightState();
+            if(MyApp.currentTrafficLightState != lastTrafficLightState)
+            activity.recreate();
+        }
+    }
+
+    public static Activity getActivity(Context context) {
+        if (context == null) {
+            return null;
+        } else if (context instanceof ContextWrapper) {
+            if (context instanceof Activity) {
+                return (Activity) context;
+            } else {
+                //noinspection AccessStaticViaInstance
+                return new MyActivityLifecycleCallbacks().getCurrentActivity();
+            }
+        }
+
+        return null;
+    }
     public static void activityEditNoteStopped() {
         activityEditNoteVisible = false;
     }
@@ -870,7 +904,7 @@ public class MyApp extends Application {
             // for Activity#requestPermissions for more details.
             return;
         }
-        Objects.requireNonNull(locationManager).requestLocationUpdates("gps", 10000, 15, listener);
+        Objects.requireNonNull(locationManager).requestLocationUpdates("gps", 10000, 45, listener);
     }
 
     public static void createNotificationForLocationReminder(DocumentReference reminderDocRef, Context c) {

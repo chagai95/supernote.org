@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     package="com.example.firebaseui_firestoreexample">
-
+    <!-- setting background to be transparent for launcher icon https://stackoverflow.com/questions/37085753/android-studio-image-asset-launcher-icon-background-color-->
     <application
         android:name=".MyApp"
         android:allowBackup="true"
@@ -14,7 +14,8 @@
         tools:ignore="AllowBackup,GoogleAppIndexingWarning">
         <activity
             android:name=".activities.HistoryActivity"
-            android:parentActivityName=".activities.EditNoteActivity" />
+            android:parentActivityName=".activities.EditNoteActivity"
+            android:windowSoftInputMode="adjustResize" />
         <activity android:name=".activities.ShowErrorActivity" />
         <activity android:name=".activities.FriendsActivity"
             android:parentActivityName=".activities.SettingsActivity"
@@ -30,7 +31,8 @@
         <activity
             android:name=".activities.EditNoteActivity"
             android:launchMode="singleTop"
-            android:parentActivityName=".activities.MainActivity" />
+            android:parentActivityName=".activities.MainActivity"
+            android:windowSoftInputMode="adjustResize"/>
         <activity
             android:name=".activities.MainActivity"
             android:launchMode="singleTop">
@@ -39,6 +41,9 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts"/>
         </activity>
 
         <receiver
